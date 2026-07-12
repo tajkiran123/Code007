@@ -287,6 +287,38 @@ export default function Home() {
     };
   }, []);
 
+  // Handle smooth scroll navigation, switching state to landing if necessary
+  const handleNavLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+    e.preventDefault();
+    handleSoundClick();
+    if (appState !== 'landing') {
+      setAppState('landing');
+      window.location.hash = targetId;
+    } else {
+      const element = document.querySelector(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+      window.location.hash = targetId;
+    }
+  };
+
+  // Scroll to hash when transition back to landing page completes
+  useEffect(() => {
+    if (appState === 'landing' && typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash) {
+        const timer = setTimeout(() => {
+          const element = document.querySelector(hash);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 100);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [appState]);
+
   // Auth Handling
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -610,17 +642,17 @@ export default function Home() {
           {/* Center: HUD Navigation links */}
           <nav className="hidden lg:flex items-center gap-8 font-mono text-[9px] tracking-widest uppercase">
             <Magnet>
-              <a href="#how-it-works" onClick={handleSoundClick} className="text-zinc-400 hover:text-[#00e5ff] transition duration-300 py-1.5 px-3 border border-transparent hover:border-[#00e5ff]/20 hover:bg-[#00e5ff]/5 rounded-full">
+              <a href="#how-it-works" onClick={(e) => handleNavLinkClick(e, '#how-it-works')} className="text-zinc-400 hover:text-[#00e5ff] transition duration-300 py-1.5 px-3 border border-transparent hover:border-[#00e5ff]/20 hover:bg-[#00e5ff]/5 rounded-full">
                 [ 01_METHODOLOGY ]
               </a>
             </Magnet>
             <Magnet>
-              <a href="#features" onClick={handleSoundClick} className="text-zinc-400 hover:text-[#00e5ff] transition duration-300 py-1.5 px-3 border border-transparent hover:border-[#00e5ff]/20 hover:bg-[#00e5ff]/5 rounded-full">
+              <a href="#features" onClick={(e) => handleNavLinkClick(e, '#features')} className="text-zinc-400 hover:text-[#00e5ff] transition duration-300 py-1.5 px-3 border border-transparent hover:border-[#00e5ff]/20 hover:bg-[#00e5ff]/5 rounded-full">
                 [ 02_FEATURES ]
               </a>
             </Magnet>
             <Magnet>
-              <a href="#marketplace" onClick={handleSoundClick} className="text-zinc-400 hover:text-[#00e5ff] transition duration-300 py-1.5 px-3 border border-transparent hover:border-[#00e5ff]/20 hover:bg-[#00e5ff]/5 rounded-full">
+              <a href="#marketplace" onClick={(e) => handleNavLinkClick(e, '#marketplace')} className="text-zinc-400 hover:text-[#00e5ff] transition duration-300 py-1.5 px-3 border border-transparent hover:border-[#00e5ff]/20 hover:bg-[#00e5ff]/5 rounded-full">
                 [ 03_MARKETPLACE ]
               </a>
             </Magnet>

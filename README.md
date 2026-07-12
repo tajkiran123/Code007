@@ -61,26 +61,109 @@ This project contains:
 
 ## Getting Started
 
-### 1. Web Frontend Client
-From the root directory:
-```bash
-# Install packages
-npm install --legacy-peer-deps
+Follow these steps to set up and run the backend server and frontend application.
 
-# Run the Next.js dev server
+---
+
+### Prerequisites & Troubleshooting
+Before starting, ensure you have **Node.js (v18 or newer)** installed on your machine.
+
+> [!IMPORTANT]
+> If the frontend server fails to start with the error `Couldn't find any pages or app directory`, it means the frontend files were deleted or not staged in your Git repository. 
+> To resolve this, run the following command in the project root:
+> ```bash
+> git restore app
+> ```
+
+> [!CAUTION]
+> If you get `MongooseServerSelectionError` or `buffering timed out after 10000ms` during database seeding or server startup, it means Mongoose cannot connect to your MongoDB database.
+>
+> **To fix this, do one of the following:**
+> * **If using MongoDB Atlas:** Go to your Atlas Dashboard -> **Network Access** -> **IP Access List** and click **Add IP Address**. Add your current IP address (or `0.0.0.0/0` to allow access from anywhere for development purposes).
+> * **If running MongoDB locally:** 
+>   1. Start a local MongoDB instance (e.g. via Mongo Community Server or Docker).
+>   2. Open `backend/.env` and update the URI to:
+>      ```env
+>      MONGODB_URI=mongodb://127.0.0.1:27017/workquest
+>      ```
+
+---
+
+### Step 1: Set Up the Backend Database & Environment
+The backend API requires a **MongoDB** database to store users, tasks, and achievements.
+
+1. **Navigate to the Backend Directory:**
+   ```bash
+   cd backend
+   ```
+
+2. **Configure Environment Variables:**
+   > [!WARNING]
+   > If `.env` already exists in the `backend/` directory, **do NOT copy or overwrite it** with `.env.example`. Overwriting it will remove your pre-configured MongoDB Atlas connection details.
+   
+   - If `.env` does not exist, copy or rename `.env.example` to `.env`:
+     ```bash
+     copy .env.example .env
+     ```
+   - Open `.env` and verify the values (make sure `MONGODB_URI` points to your MongoDB Atlas connection string or local MongoDB instance).
+
+3. **Install Backend Dependencies:**
+   ```bash
+   npm install
+   ```
+
+4. **Seed the Database with Mock Data:**
+   Run the seeding script to set up test users, roles, tasks, and initial departments:
+   ```bash
+   npm run seed
+   ```
+
+---
+
+### Step 2: Start the Backend API Server
+Once the environment is configured and the database is seeded, start the development backend server:
+```bash
+# From the backend directory:
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to access the landing page, login page (supports both Employee and Manager views), Kanban Sprint board, Leaderboard rosters, Reward shop, and the AI coach chatbot.
-
-### 2. Express Backend Server
-From the `backend/` directory:
-```bash
-cd backend
-npm install
-npm run dev
+The server will start on [http://localhost:5000](http://localhost:5000). You should see:
+```text
+🚀 WorkQuest AI Backend Running on port 5000
+🔌 Connected to MongoDB Atlas via Mongoose successfully.
 ```
 
-### 3. Mobile Client
+---
+
+### Step 3: Set Up and Start the Web Frontend
+1. **Navigate to the Root Directory (`code007`):**
+   *(If you are in the backend directory, run `cd ..`)*
+
+2. **Install Frontend Dependencies:**
+   Install the required Next.js, React, and UI libraries using peer dependency fallback:
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+
+3. **Start the Next.js Development Server:**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) in your web browser.
+
+---
+
+### Step 4: Accessing the Application
+You can use the seeded credentials to log in and test different dashboard interfaces:
+
+| Role | Email | Password |
+| :--- | :--- | :--- |
+| **Admin** | `admin01@workquest.ai` | `Password123!` |
+| **Manager** | `manager01@workquest.ai` | `Password123!` |
+| **Employee** | `employee1@workquest.ai` | `Password123!` |
+
+---
+
+### Step 5: (Optional) Running the Mobile Client
 Drop the files under `mobile/` directly inside an Expo CLI project or React Native directory to run inside your emulator or device:
 ```bash
 # Inside your React Native Expo directory:

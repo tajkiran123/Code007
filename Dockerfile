@@ -26,10 +26,10 @@ COPY --from=backend-builder /app/backend/package*.json ./backend/
 COPY --from=backend-builder /app/backend/node_modules ./backend/node_modules
 
 # Copy Frontend static export or next workspace
-COPY --from=frontend-builder /app/.next ./.next
-COPY --from=frontend-builder /app/public ./public
-COPY --from=frontend-builder /app/package*.json ./
-COPY --from=frontend-builder /app/node_modules ./node_modules
+COPY --from=frontend-builder /app/frontend/.next ./.next
+COPY --from=frontend-builder /app/frontend/public ./public
+COPY --from=frontend-builder /app/frontend/package*.json ./
+COPY --from=frontend-builder /app/frontend/node_modules ./node_modules
 
 EXPOSE 3000
 EXPOSE 5000

@@ -19,7 +19,7 @@ import {
   mockProductivityStats as initialProductivityStats,
   levelNames, difficultyXp 
 } from './mockData';
-import { User, Task, Reward, Badge, LeaderboardEntry } from './types';
+import { User, Task, Reward, Badge, LeaderboardEntry, ActivityLog } from './types';
 
 // WebGL Canvas & Magnetic Interaction Components
 import ThreeCanvas from './components/ThreeCanvas';
@@ -97,6 +97,10 @@ const Scroll3DContainer = ({ children }: { children: React.ReactNode }) => {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+const generateId = () => Math.random().toString(36).substr(2, 9);
+const getCurrentTimestamp = () => Date.now();
+const getDueDate = () => new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0];
+
 export default function Home() {
   // Theme & State
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -135,10 +139,10 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
 
   // Dynamic API states to replace imports
-  const [mockLeaderboard, setMockLeaderboard] = useState<any[]>(initialLeaderboard);
-  const [mockActivityLogs, setMockActivityLogs] = useState<any[]>(initialActivityLogs);
-  const [mockProductivityStats, setMockProductivityStats] = useState<any[]>(initialProductivityStats);
-  const [burnoutReport, setBurnoutReport] = useState<any[]>([]);
+  const [mockLeaderboard, setMockLeaderboard] = useState<LeaderboardEntry[]>(initialLeaderboard);
+  const [mockActivityLogs, setMockActivityLogs] = useState<ActivityLog[]>(initialActivityLogs);
+  const [mockProductivityStats, setMockProductivityStats] = useState<{ day: string; xp: number; tasks: number }[]>(initialProductivityStats);
+  const [burnoutReport, setBurnoutReport] = useState<unknown[]>([]);
 
   // Manager Approval State
   const [taskToApprove, setTaskToApprove] = useState<Task | null>(null);
@@ -156,7 +160,7 @@ export default function Home() {
       const tasksRes = await fetch(`${API_BASE}/tasks`);
       if (tasksRes.ok) {
         const data = await tasksRes.json();
-        setTasks(data.map((t: any) => ({
+        setTasks(data.map((t: { _id?: string; id?: string; status: string }) => ({
           ...t,
           id: t._id || t.id,
           status: t.status.toLowerCase()
@@ -167,7 +171,7 @@ export default function Home() {
       const rewardsRes = await fetch(`${API_BASE}/rewards`);
       if (rewardsRes.ok) {
         const data = await rewardsRes.json();
-        setRewardList(data.map((r: any) => ({
+        setRewardList(data.map((r: { _id?: string; id?: string }) => ({
           ...r,
           id: r._id || r.id
         })));
@@ -177,7 +181,7 @@ export default function Home() {
       const leadRes = await fetch(`${API_BASE}/users/leaderboard`);
       if (leadRes.ok) {
         const data = await leadRes.json();
-        setMockLeaderboard(data.map((u: any) => ({
+        setMockLeaderboard(data.map((u: { _id?: string; id?: string }) => ({
           ...u,
           id: u._id || u.id
         })));
@@ -202,7 +206,9 @@ export default function Home() {
   };
 
   useEffect(() => {
-    loadBackendData();
+    Promise.resolve().then(() => {
+      loadBackendData();
+    });
   }, [appState]);
 
   // Track dynamic mouse offset coordinates for sci-fi HUD display
@@ -211,7 +217,7 @@ export default function Home() {
 
   // Trigger HUD Notification
   const triggerNotification = (text: string, type: 'xp' | 'badge' | 'reward' | 'success', amount?: string) => {
-    const id = Math.random().toString(36).substr(2, 9);
+    const id = generateId();
     setNotifications((prev) => [...prev, { id, text, type, amount }]);
     
     if (soundEnabled) {
@@ -405,12 +411,12 @@ export default function Home() {
       } else {
         // Fallback
         const createdTask: Task = {
-          id: `task-${Date.now()}`,
+          id: `task-${getCurrentTimestamp()}`,
           title: newTaskTitle,
           description: newTaskDesc,
           difficulty: newTaskDifficulty,
           xp: targetXp,
-          dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+          dueDate: getDueDate(),
           status: 'todo',
           assignedTo: newTaskAssignee,
           assignedToName: newTaskAssignee === 'emp-1' ? 'Developer Engineer 01' : 'Jordan Sparks',
@@ -425,12 +431,12 @@ export default function Home() {
     } catch {
       // Fallback
       const createdTask: Task = {
-        id: `task-${Date.now()}`,
+        id: `task-${getCurrentTimestamp()}`,
         title: newTaskTitle,
         description: newTaskDesc,
         difficulty: newTaskDifficulty,
         xp: targetXp,
-        dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+        dueDate: getDueDate(),
         status: 'todo',
         assignedTo: newTaskAssignee,
         assignedToName: newTaskAssignee === 'emp-1' ? 'Developer Engineer 01' : 'Jordan Sparks',
@@ -550,7 +556,10 @@ export default function Home() {
       }
     } catch {
       // Fallback
-      currentUser.xp -= reward.cost;
+      setCurrentUser(prev => ({
+        ...prev,
+        xp: prev.xp - reward.cost
+      }));
       setRewardList((prev) => prev.map((r) => r.id === reward.id ? { ...r, stock: r.stock - 1 } : r));
       setRewardSuccess(reward.title);
       triggerNotification(`Redemption finalized: ${reward.title} (offline)`, 'reward', `-${reward.cost} XP`);
@@ -599,22 +608,22 @@ export default function Home() {
       {/* Floating HUD Telemetry Gauges (Spaceship cockpit HUD feeling) */}
       <div className="hidden lg:block fixed left-6 top-1/2 -translate-y-1/2 z-30 font-mono text-[8px] text-zinc-500 space-y-6 pointer-events-none uppercase select-none tracking-widest">
         <div>
-          <p className="text-zinc-600">// CORE TELEMETRY</p>
+          <p className="text-zinc-600">{"// CORE TELEMETRY"}</p>
           <p>X_COORD: <span className="text-[#00e5ff] font-bold">{hudCoords.x}</span></p>
           <p>Y_COORD: <span className="text-[#00e5ff] font-bold">{hudCoords.y}</span></p>
           <p>Z_DEPTH: <span className="text-[#7c3aed] font-bold">{hudCoords.z}</span></p>
         </div>
         <div>
-          <p className="text-zinc-600">// SYS CONFIG</p>
+          <p className="text-zinc-600">{"// SYS CONFIG"}</p>
           <p>WARP_VEL: <span className="text-white">0.82c</span></p>
           <p>WARP_PCT: <span className="text-emerald-400">{(scrollProgress * 100).toFixed(0)}%</span></p>
           <p>SYS_TEMP: <span className="text-amber-500">41.8°C</span></p>
         </div>
         <div>
-          <p className="text-zinc-600">// HUD STATE</p>
+          <p className="text-zinc-600">{"// HUD STATE"}</p>
           <p className="flex items-center gap-1.5 text-zinc-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            ONLINE // SECURE
+            {"ONLINE // SECURE"}
           </p>
         </div>
       </div>
@@ -764,21 +773,21 @@ export default function Home() {
 
                     <div className="space-y-4 font-mono text-[9px]">
                       <div>
-                        <p className="text-zinc-500">// XP ACCRUING VELOCITY</p>
+                        <p className="text-zinc-500">{"// XP ACCRUING VELOCITY"}</p>
                         <div className="flex justify-between text-white mt-1">
                           <span>TOTAL YIELD RATE:</span>
                           <span className="text-[#00e5ff] font-bold">982 XP/HR</span>
                         </div>
                       </div>
                       <div>
-                        <p className="text-zinc-500">// ACTIVE WORKSPACE COGNITION</p>
+                        <p className="text-zinc-500">{"// ACTIVE WORKSPACE COGNITION"}</p>
                         <div className="flex justify-between text-white mt-1">
                           <span>AI STREAK STABILITY:</span>
                           <span className="text-emerald-400 font-bold">98.4%</span>
                         </div>
                       </div>
                       <div>
-                        <p className="text-zinc-500">// BACKEND MEMORY PIPELINE</p>
+                        <p className="text-zinc-500">{"// BACKEND MEMORY PIPELINE"}</p>
                         <div className="flex justify-between text-white mt-1">
                           <span>IN-MEMORY CACHE:</span>
                           <span className="text-[#7c3aed] font-bold">STABLE</span>
@@ -805,12 +814,12 @@ export default function Home() {
                   
                   {/* Left Column: Diagonal Pinned Text */}
                   <div className="tilt-reveal lg:col-span-1">
-                    <span className="text-[9px] font-mono text-[#00e5ff] uppercase tracking-widest block mb-2">// System Mechanics</span>
+                    <span className="text-[9px] font-mono text-[#00e5ff] uppercase tracking-widest block mb-2">{"// System Mechanics"}</span>
                     <h2 className="text-3xl font-extrabold tracking-tight text-white uppercase leading-none">The Gamification Lifecycle</h2>
                     <p className="text-zinc-400 text-xs mt-6 font-mono border-l-2 border-[#7c3aed] pl-4">A balanced engine designed for continuous developer velocity without burnout alerts.</p>
                     
                     <div className="mt-12 hidden lg:block border border-[#00e5ff]/20 p-5 bg-zinc-950/40 rounded-xl font-mono text-[9px] text-zinc-500">
-                      <p className="text-white font-bold mb-2 uppercase">// RADAR READOUT</p>
+                      <p className="text-white font-bold mb-2 uppercase">{"// RADAR READOUT"}</p>
                       <p>W_COORDS: [X: {hudCoords.x}, Y: {hudCoords.y}]</p>
                       <p>W_DEPTH: [Z: {hudCoords.z}]</p>
                     </div>
@@ -846,7 +855,7 @@ export default function Home() {
                 
                 {/* Left Side: Diagnostics and Spec details */}
                 <div className="tilt-reveal">
-                  <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest block mb-2">// Engineering Specifications</span>
+                  <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest block mb-2">{"// Engineering Specifications"}</span>
                   <h2 className="text-3xl font-extrabold tracking-tight text-white uppercase mb-8 leading-none">
                     Linear Architecture. <br />Handcrafted Details.
                   </h2>
@@ -903,7 +912,7 @@ export default function Home() {
             <section id="marketplace" className="max-w-7xl w-full px-6 py-28 border-b border-white/5 text-left relative z-20">
               <div className="tilt-reveal flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
                 <div>
-                  <span className="text-[9px] font-mono text-[#00e5ff] uppercase tracking-widest block mb-2">// Exchange Store</span>
+                  <span className="text-[9px] font-mono text-[#00e5ff] uppercase tracking-widest block mb-2">{"// Exchange Store"}</span>
                   <h2 className="text-3xl font-extrabold tracking-tight text-white uppercase font-sans">The Rewards Marketplace</h2>
                   <p className="text-zinc-400 text-xs mt-3 font-mono max-w-xl">Collect points and redeem items instantly. Ships directly to your office desk.</p>
                 </div>
@@ -1456,7 +1465,7 @@ export default function Home() {
                       <label className="block text-zinc-400 mb-2 font-bold uppercase tracking-widest text-[9px]">Difficulty</label>
                       <select 
                         value={newTaskDifficulty} 
-                        onChange={(e: any) => setNewTaskDifficulty(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewTaskDifficulty(e.target.value as 'easy' | 'medium' | 'hard' | 'extreme')}
                         className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-white/5 text-white text-xs focus:outline-none"
                       >
                         <option value="easy">Easy (10 XP)</option>

@@ -216,7 +216,7 @@ export async function POST(req: Request) {
     const result = await model.generateContent(contextPrompt);
     const text = result.response.text();
     return NextResponse.json({ reply: text || fallback });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Next.js API route Gemini error:', error);
     return NextResponse.json({ reply: "System Online. Shifting workload parameters implies burnout index is stable at 14%. Keep daily login multipliers active." });
   }

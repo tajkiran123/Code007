@@ -7,9 +7,6 @@ const nextConfig: NextConfig = {
     root: __dirname
   },
 
-  typescript: {
-    ignoreBuildErrors: true,
-  },
 };
 
 export default nextConfig;

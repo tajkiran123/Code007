@@ -168,9 +168,11 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
           queryLower.includes('done') || queryLower.includes('complete') || 
           queryLower.includes('sprint') || queryLower.includes('work')
         ) {
-          const taskQueries = keywords.map(kw => ({ title: { $regex: kw, $options: 'i' } }))
-            .concat(keywords.map(kw => ({ description: { $regex: kw, $options: 'i' } })))
-            .concat([{ assignedTo: user?.employeeId || '' }]);
+          const taskQueries: any[] = [
+            ...keywords.map(kw => ({ title: { $regex: kw, $options: 'i' } })),
+            ...keywords.map(kw => ({ description: { $regex: kw, $options: 'i' } })),
+            { assignedTo: user?.employeeId || '' }
+          ];
 
           let matchingTasks = await Task.find({ $or: taskQueries }).limit(8).lean();
 
@@ -196,8 +198,10 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
           queryLower.includes('xp') || queryLower.includes('level') || 
           queryLower.includes('burnout') || queryLower.includes('standings')
         ) {
-          const userQueries = keywords.map(kw => ({ name: { $regex: kw, $options: 'i' } }))
-            .concat(keywords.map(kw => ({ department: { $regex: kw, $options: 'i' } })));
+          const userQueries: any[] = [
+            ...keywords.map(kw => ({ name: { $regex: kw, $options: 'i' } })),
+            ...keywords.map(kw => ({ department: { $regex: kw, $options: 'i' } }))
+          ];
 
           let matchingUsers = await User.find({ $or: userQueries }).limit(10).lean();
           const topUsers = await User.find().sort({ xp: -1 }).limit(5).lean();
@@ -231,8 +235,10 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
           queryLower.includes('leave') || queryLower.includes('cost') || 
           queryLower.includes('price')
         ) {
-          const rewardQueries = keywords.map(kw => ({ title: { $regex: kw, $options: 'i' } }))
-            .concat(keywords.map(kw => ({ description: { $regex: kw, $options: 'i' } })));
+          const rewardQueries: any[] = [
+            ...keywords.map(kw => ({ title: { $regex: kw, $options: 'i' } })),
+            ...keywords.map(kw => ({ description: { $regex: kw, $options: 'i' } }))
+          ];
 
           let matchingRewards = await Marketplace.find({ $or: rewardQueries }).limit(10).lean();
 
@@ -255,8 +261,10 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
           queryLower.includes('backend') || queryLower.includes('manager') || 
           queryLower.includes('leader')
         ) {
-          const deptQueries = keywords.map(kw => ({ name: { $regex: kw, $options: 'i' } }))
-            .concat(keywords.map(kw => ({ code: { $regex: kw, $options: 'i' } })));
+          const deptQueries: any[] = [
+            ...keywords.map(kw => ({ name: { $regex: kw, $options: 'i' } })),
+            ...keywords.map(kw => ({ code: { $regex: kw, $options: 'i' } }))
+          ];
 
           let matchingDepts = await Department.find({ $or: deptQueries }).limit(5).lean();
 

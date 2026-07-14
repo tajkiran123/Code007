@@ -32,7 +32,7 @@ const io = new Server(server, {
 // Database connection
 connectDB();
 
-app.use(cors());
+app.use(cors() as any);
 app.use(express.json());
 
 // Routes middleware integration

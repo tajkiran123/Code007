@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import Task from '../models/Task';
 import User from '../models/User';
+import mongoose from 'mongoose';
 
 const router = Router();
 
@@ -8,6 +9,18 @@ const router = Router();
 // @desc    Get performance velocity parameters
 router.get('/velocity', async (req: Request, res: Response): Promise<any> => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚠️ MongoDB offline. Returning mock velocity.');
+      const mockVelocity = [
+        { day: 'Mon', xp: 120, tasks: 3 },
+        { day: 'Tue', xp: 180, tasks: 4 },
+        { day: 'Wed', xp: 90, tasks: 2 },
+        { day: 'Thu', xp: 240, tasks: 5 },
+        { day: 'Fri', xp: 150, tasks: 3 }
+      ];
+      return res.json(mockVelocity);
+    }
+
     const tasks = await Task.find({ status: 'completed' });
     
     // Group XP yields by day of week or date
@@ -45,6 +58,16 @@ router.get('/velocity', async (req: Request, res: Response): Promise<any> => {
 // @desc    Get burnout coefficients for employees
 router.get('/burnout', async (req: Request, res: Response): Promise<any> => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚠️ MongoDB offline. Returning mock burnout coefficients.');
+      const mockBurnout = [
+        { name: 'Developer Engineer 01', department: 'Engineering', burnout: 25 },
+        { name: 'Developer Engineer 02', department: 'Engineering', burnout: 45 },
+        { name: 'Developer Engineer 03', department: 'Product', burnout: 60 }
+      ];
+      return res.json(mockBurnout);
+    }
+
     const employees = await User.find({ role: 'Employee' }).select('name department burnoutScore');
     const burnoutReport = employees.map(emp => ({
       name: emp.name,

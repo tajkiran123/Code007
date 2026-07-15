@@ -13,6 +13,10 @@ export const mockUsers: User[] = [
     badges: ['badge-1', 'badge-2', 'badge-4'],
     department: 'Engineering',
     joinedAt: '2026-01-15',
+    themeColor: 'cyan',
+    skipsLeft: 1,
+    streakFreezeActive: false,
+    salary: '$115,000',
   },
   {
     id: 'mgr-1',
@@ -26,6 +30,27 @@ export const mockUsers: User[] = [
     badges: ['badge-3', 'badge-7', 'badge-10'],
     department: 'Product',
     joinedAt: '2025-05-10',
+    themeColor: 'cyan',
+    skipsLeft: 1,
+    streakFreezeActive: false,
+    salary: '$145,000',
+  },
+  {
+    id: 'adm-1',
+    name: 'Admin Commander 01',
+    role: 'admin',
+    email: 'admin01@workquest.ai',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+    xp: 5000,
+    level: 5,
+    streak: 8,
+    badges: ['badge-5', 'badge-8'],
+    department: 'DevOps',
+    joinedAt: '2024-03-12',
+    themeColor: 'purple',
+    skipsLeft: 2,
+    streakFreezeActive: false,
+    salary: '$160,000',
   }
 ];
 

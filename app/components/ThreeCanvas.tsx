@@ -3,8 +3,34 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-export default function ThreeCanvas() {
+interface ThreeCanvasProps {
+  appState: string;
+  themeColor: 'cyan' | 'purple' | 'emerald' | 'amber';
+}
+
+export default function ThreeCanvas({ appState, themeColor }: ThreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // References to dynamically update colors of cubes materials without full canvas re-initiations
+  const cubesMaterialRef = useRef<THREE.MeshBasicMaterial | null>(null);
+
+  // Accent Theme color setter effect
+  useEffect(() => {
+    const getHexColor = (colorName: string) => {
+      switch (colorName) {
+        case 'purple': return 0xa855f7;
+        case 'emerald': return 0x10b981;
+        case 'amber': return 0xf59e0b;
+        case 'cyan':
+        default:
+          return 0x00e5ff;
+      }
+    };
+    const activeColor = getHexColor(themeColor);
+    if (cubesMaterialRef.current) {
+      cubesMaterialRef.current.color.setHex(activeColor);
+    }
+  }, [themeColor]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -48,14 +74,12 @@ export default function ThreeCanvas() {
     const warpColors = new Float32Array(warpCount * 3);
 
     for (let i = 0; i < warpCount; i++) {
-      // Create a cylinder/tunnel distribution along Z
       const angle = Math.random() * Math.PI * 2;
       const radius = 1.2 + Math.random() * 2.8;
       warpPositions[i * 3] = Math.cos(angle) * radius;
       warpPositions[i * 3 + 1] = Math.sin(angle) * radius;
-      warpPositions[i * 3 + 2] = (Math.random() - 0.5) * 20; // depth
+      warpPositions[i * 3 + 2] = (Math.random() - 0.5) * 20;
 
-      // Cyan to blue gradient
       const ratio = Math.random();
       warpColors[i * 3] = 0.0;
       warpColors[i * 3 + 1] = 0.6 + ratio * 0.4;
@@ -79,7 +103,7 @@ export default function ThreeCanvas() {
     const coreGroup = new THREE.Group();
     const coreGeometry = new THREE.SphereGeometry(1.3, 16, 16);
     const coreMaterial = new THREE.MeshBasicMaterial({
-      color: 0x7c3aed, // Royal Purple
+      color: 0x7c3aed,
       wireframe: true,
       transparent: true,
       opacity: 0.0,
@@ -88,7 +112,6 @@ export default function ThreeCanvas() {
     const coreMesh = new THREE.Mesh(coreGeometry, coreMaterial);
     coreGroup.add(coreMesh);
 
-    // Flat accretion disk particles
     const diskCount = 800;
     const diskGeometry = new THREE.BufferGeometry();
     const diskPositions = new Float32Array(diskCount * 3);
@@ -99,7 +122,7 @@ export default function ThreeCanvas() {
       const r = 1.6 + Math.random() * 2.2;
       const a = Math.random() * Math.PI * 2;
       diskPositions[i * 3] = Math.cos(a) * r;
-      diskPositions[i * 3 + 1] = (Math.random() - 0.5) * 0.15; // flat height
+      diskPositions[i * 3 + 1] = (Math.random() - 0.5) * 0.15;
       diskPositions[i * 3 + 2] = Math.sin(a) * r;
 
       diskRadii[i] = r;
@@ -109,7 +132,7 @@ export default function ThreeCanvas() {
     
     const diskMaterial = new THREE.PointsMaterial({
       size: 0.028,
-      color: 0x00e5ff, // Neon Cyan disk
+      color: 0x00e5ff,
       transparent: true,
       opacity: 0.0,
       blending: THREE.AdditiveBlending,
@@ -141,6 +164,43 @@ export default function ThreeCanvas() {
       wireBoxes.push(boxMesh);
     }
     scene.add(matrixGroup);
+
+    // Model 4: Subtle Dashboard Starfield (User Page Dashboard)
+    const dashStarsCount = 200;
+    const dashStarsGeometry = new THREE.BufferGeometry();
+    const dashStarsPositions = new Float32Array(dashStarsCount * 3);
+
+    for (let i = 0; i < dashStarsCount; i++) {
+      dashStarsPositions[i * 3] = (Math.random() - 0.5) * 16;
+      dashStarsPositions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+      dashStarsPositions[i * 3 + 2] = (Math.random() - 0.5) * 8;
+    }
+    dashStarsGeometry.setAttribute('position', new THREE.BufferAttribute(dashStarsPositions, 3));
+
+    const getHexColor = (colorName: string) => {
+      switch (colorName) {
+        case 'purple': return 0xa855f7;
+        case 'emerald': return 0x10b981;
+        case 'amber': return 0xf59e0b;
+        case 'cyan':
+        default:
+          return 0x00e5ff;
+      }
+    };
+    const initialHexColor = getHexColor(themeColor);
+
+    const dashStarsMaterial = new THREE.PointsMaterial({
+      size: 0.015,
+      color: initialHexColor,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    cubesMaterialRef.current = dashStarsMaterial as any;
+
+    const dashStars = new THREE.Points(dashStarsGeometry, dashStarsMaterial);
+    scene.add(dashStars);
 
     // Background cosmic dust
     const starsCount = 200;
@@ -209,28 +269,36 @@ export default function ThreeCanvas() {
       camera.position.x += (mouseX * 1.6 - camera.position.x) * 0.05;
       camera.position.y += (-mouseY * 1.6 - camera.position.y) * 0.05;
       
-      // Dynamic camera depth and rotation sweeps based on scroll progress
-      camera.position.z = 8.5 - scrollProgress * 3.5;
-      scene.rotation.y = scrollProgress * Math.PI * 0.6;
-      scene.rotation.x = scrollProgress * Math.PI * 0.2;
+      const isLanding = appState === 'landing';
+      const isDashboard = appState === 'employee_dashboard' || appState === 'manager_dashboard';
+
+      // Dynamic camera depth and rotation sweeps based on scroll progress (landing only)
+      if (isLanding) {
+        camera.position.z = 8.5 - scrollProgress * 3.5;
+        scene.rotation.y = scrollProgress * Math.PI * 0.6;
+        scene.rotation.x = scrollProgress * Math.PI * 0.2;
+      } else {
+        camera.position.z = 7.5;
+        scene.rotation.y = mouseX * 0.15;
+        scene.rotation.x = -mouseY * 0.15;
+      }
 
       // ---------------------------------------------------
       // 3D SCENE TRANSITIONS
       // ---------------------------------------------------
       
       // Phase 1: Warp Tunnel Flight (Scroll 0.0 to 0.35)
-      if (scrollProgress < 0.4) {
+      if (isLanding && scrollProgress < 0.4) {
         const opacity = Math.max(0, 1 - (scrollProgress / 0.3));
         warpMaterial.opacity = opacity;
         warpMaterial.visible = opacity > 0.01;
 
-        // Fly particles forward
         const warpPosAttr = warpGeometry.attributes.position as THREE.BufferAttribute;
         for (let i = 0; i < warpCount; i++) {
           let z = warpPosAttr.getZ(i);
-          z += 0.085; // flight speed
+          z += 0.085;
           if (z > 10) {
-            z = -10; // loop back to tunnel deep space
+            z = -10;
           }
           warpPosAttr.setZ(i, z);
         }
@@ -241,7 +309,7 @@ export default function ThreeCanvas() {
       }
 
       // Phase 2: Gravity Core / Black Hole (Scroll 0.25 to 0.75)
-      if (scrollProgress >= 0.2 && scrollProgress < 0.8) {
+      if (isLanding && scrollProgress >= 0.2 && scrollProgress < 0.8) {
         let opacity = 0;
         if (scrollProgress < 0.4) {
           opacity = (scrollProgress - 0.2) / 0.2;
@@ -255,10 +323,9 @@ export default function ThreeCanvas() {
         coreMaterial.opacity = opacity * 0.85;
         diskMaterial.opacity = opacity * 0.75;
         
-        // Spin the black hole accretion disk
         const diskPosAttr = diskGeometry.attributes.position as THREE.BufferAttribute;
         for (let i = 0; i < diskCount; i++) {
-          diskAngles[i] += 0.015 * (3.5 / diskRadii[i]); // speed varies by radius
+          diskAngles[i] += 0.015 * (3.5 / diskRadii[i]);
           const a = diskAngles[i];
           const r = diskRadii[i];
           diskPosAttr.setXYZ(
@@ -278,14 +345,12 @@ export default function ThreeCanvas() {
       }
 
       // Phase 3: Wireframe Matrix (Scroll > 0.6)
-      if (scrollProgress >= 0.55) {
+      if (isLanding && scrollProgress >= 0.55) {
         const opacity = Math.min(1, (scrollProgress - 0.55) / 0.25);
         
         wireBoxes.forEach((box, idx) => {
           const mat = box.material as THREE.MeshPhongMaterial;
           mat.opacity = opacity * 0.75;
-          
-          // Animate individual box rotations
           box.rotation.x = elapsedTime * (0.12 * (idx + 1)) + mouseX * 0.45;
           box.rotation.y = elapsedTime * (0.08 * (idx + 1)) + mouseY * 0.45;
         });
@@ -295,6 +360,15 @@ export default function ThreeCanvas() {
         wireBoxes.forEach((box) => {
           (box.material as THREE.MeshPhongMaterial).opacity = 0;
         });
+      }
+
+      // Phase 4: Faint Dashboard Starfield (Dashboard Active state)
+      const targetStarsOpacity = isDashboard ? 0.35 : 0.0;
+      dashStarsMaterial.opacity += (targetStarsOpacity - dashStarsMaterial.opacity) * 0.08;
+
+      if (dashStarsMaterial.opacity > 0.01) {
+        dashStars.rotation.y = elapsedTime * 0.003;
+        dashStars.rotation.x = elapsedTime * 0.0015;
       }
 
       renderer.render(scene, camera);
@@ -319,6 +393,8 @@ export default function ThreeCanvas() {
       coreMaterial.dispose();
       diskGeometry.dispose();
       diskMaterial.dispose();
+      dashStarsGeometry.dispose();
+      dashStarsMaterial.dispose();
       starsGeometry.dispose();
       starsMaterial.dispose();
       
@@ -329,7 +405,7 @@ export default function ThreeCanvas() {
       
       renderer.dispose();
     };
-  }, []);
+  }, [appState]);
 
   return (
     <div 

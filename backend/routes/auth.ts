@@ -79,13 +79,16 @@ router.post('/login', async (req: Request, res: Response): Promise<any> => {
     if (mongoose.connection.readyState !== 1) {
       console.log('⚠️ MongoDB connection is not active. Using mock accounts login fallback.');
       
-      const isManager = email.includes('sarah') || email.includes('manager');
-      const mockId = isManager ? 'mgr-1' : 'emp-1';
-      const mockName = isManager ? 'Manager Leader 01' : 'Developer Engineer 01';
-      const mockRole = isManager ? 'Manager' : 'Employee';
-      const mockDept = isManager ? 'Product' : 'Engineering';
-      const mockEmpId = isManager ? 'MGR-001' : 'EMP-001';
-      const mockAvatar = isManager 
+      const isAdmin = email.includes('admin') || email.includes('ceo');
+      const isManager = !isAdmin && (email.includes('sarah') || email.includes('manager'));
+      const mockId = isAdmin ? 'adm-1' : isManager ? 'mgr-1' : 'emp-1';
+      const mockName = isAdmin ? 'Admin Commander 01' : isManager ? 'Manager Leader 01' : 'Developer Engineer 01';
+      const mockRole = isAdmin ? 'Admin' : isManager ? 'Manager' : 'Employee';
+      const mockDept = isAdmin ? 'DevOps' : isManager ? 'Product' : 'Engineering';
+      const mockEmpId = isAdmin ? 'ADM-001' : isManager ? 'MGR-001' : 'EMP-001';
+      const mockAvatar = isAdmin
+        ? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&q=80'
+        : isManager 
         ? 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&q=80'
         : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
 
@@ -105,9 +108,13 @@ router.post('/login', async (req: Request, res: Response): Promise<any> => {
           department: mockDept,
           employeeId: mockEmpId,
           avatar: mockAvatar,
-          xp: isManager ? 4000 : 3428,
-          level: isManager ? 4 : 4,
-          streak: 6
+          xp: isAdmin ? 5000 : isManager ? 8520 : 3420,
+          level: isAdmin ? 5 : isManager ? 7 : 4,
+          streak: isAdmin ? 8 : isManager ? 12 : 6,
+          themeColor: isAdmin ? 'purple' : 'cyan',
+          skipsLeft: isAdmin ? 2 : 1,
+          streakFreezeActive: false,
+          salary: isAdmin ? '$160,000' : isManager ? '$145,000' : '$115,000'
         }
       });
     }

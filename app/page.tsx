@@ -7,7 +7,7 @@ import {
   Trash2, ShieldCheck, TrendingUp, Moon, Sun, ArrowRight, Zap, 
   ChevronDown, Search, ArrowUpRight, Check, Send, AlertTriangle, 
   PieChart, MessageSquare, LogOut, Code, RefreshCw, Layers,
-  ChevronLeft
+  ChevronLeft, Minus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -24,6 +24,7 @@ import { User, Task, Reward, Badge, LeaderboardEntry, ActivityLog } from './type
 // WebGL Canvas & Magnetic Interaction Components
 import ThreeCanvas from './components/ThreeCanvas';
 import Magnet from './components/Magnet';
+import { ManagerDashboard, CeoDashboard } from './components/Dashboards';
 
 // ===================================================
 // DYNAMIC 3D MOUSE-TILT & SPOTLIGHT GLOW CARD WRAPPER
@@ -104,7 +105,7 @@ const getDueDate = () => new Date(Date.now() + 86400000 * 3).toISOString().split
 export default function Home() {
   // Theme & State
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [appState, setAppState] = useState<'landing' | 'login' | 'employee_dashboard' | 'manager_dashboard'>('landing');
+  const [appState, setAppState] = useState<'landing' | 'login' | 'employee_dashboard' | 'manager_dashboard' | 'ceo_dashboard'>('landing');
 
   // Authenticated User
   const [currentUser, setCurrentUser] = useState<User>(mockUsers[0]);
@@ -148,10 +149,66 @@ export default function Home() {
   const [taskToApprove, setTaskToApprove] = useState<Task | null>(null);
   const [managerQualityScore, setManagerQualityScore] = useState(9);
   const [managerFeedback, setManagerFeedback] = useState('Outstanding deployment. Commendable velocity!');
+  const [managerTab, setManagerTab] = useState<'quests' | 'clients'>('quests');
+  const [ceoTab, setCeoTab] = useState<'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues'>('salaries');
+  const [usersList, setUsersList] = useState<User[]>(mockUsers);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [isWarping, setIsWarping] = useState(false);
 
-  // Toast / System Notifications State
   const [notifications, setNotifications] = useState<{ id: string; text: string; type: 'xp' | 'badge' | 'reward' | 'success'; amount?: string }[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Issues / Complaints state
+  const [complaintsList, setComplaintsList] = useState<any[]>([
+    { id: '1', userName: 'Developer Engineer 01', text: 'Slow loading times on the dev environment.', status: 'pending', createdAt: new Date(Date.now() - 3600000).toISOString() },
+    { id: '2', userName: 'Developer Engineer 02', text: 'Telemetry metrics missing for Cloud project.', status: 'reviewed', createdAt: new Date(Date.now() - 7200000).toISOString() }
+  ]);
+
+  // Interactive Quest Value Estimator Simulator State
+  const [simDept, setSimDept] = useState<'Engineering' | 'Product' | 'Design' | 'Marketing'>('Engineering');
+  const [simTasks, setSimTasks] = useState({ easy: 2, medium: 1, hard: 0, extreme: 0 });
+  const [simStreak, setSimStreak] = useState(5);
+  const [simQuality, setSimQuality] = useState(8);
+  const [simulating, setSimulating] = useState(false);
+
+  const handleTaskSimCount = (difficulty: 'easy' | 'medium' | 'hard' | 'extreme', operation: 'add' | 'sub') => {
+    handleSoundClick();
+    setSimTasks(prev => {
+      const current = prev[difficulty];
+      const nextVal = operation === 'add' ? current + 1 : Math.max(0, current - 1);
+      return { ...prev, [difficulty]: nextVal };
+    });
+  };
+
+  const getSimulatedXp = () => {
+    let base = 0;
+    base += simTasks.easy * 15;
+    base += simTasks.medium * 30;
+    base += simTasks.hard * 60;
+    base += simTasks.extreme * 120;
+    
+    const qualityMult = 0.6 + (simQuality * 0.05);
+    const streakMult = 1 + (simStreak * 0.034);
+    return Math.round(base * qualityMult * streakMult);
+  };
+
+  const executeSimulation = () => {
+    handleSoundClick();
+    setSimulating(true);
+    const xp = getSimulatedXp();
+    setTimeout(() => {
+      setSimulating(false);
+      triggerNotification(`Simulation finished. Yielded +${xp} XP!`, "xp", `${xp}`);
+      if (xp >= 1000) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.8 },
+          colors: ['#00e5ff', '#7c3aed', '#00ff66']
+        });
+      }
+    }, 800);
+  };
 
   // Load telemetry data from MongoDB backend
   const loadBackendData = async () => {
@@ -200,10 +257,52 @@ export default function Home() {
         const data = await burnRes.json();
         setBurnoutReport(data);
       }
+
+      // 6. Fetch users list
+      const usersRes = await fetch(`${API_BASE}/users`);
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        setUsersList(data.map((u: { _id?: string; id?: string }) => ({
+          ...u,
+          id: u._id || u.id
+        })));
+      }
+
+      // 7. Fetch complaints / issues list
+      try {
+        const complaintsRes = await fetch(`${API_BASE}/ai/complaints`);
+        if (complaintsRes.ok) {
+          const data = await complaintsRes.json();
+          setComplaintsList(data);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch complaints", err);
+      }
     } catch (err) {
       console.warn("WorkQuest API server offline. Using local telemetry state.", err);
     }
   };
+
+  // Load token on mount
+  useEffect(() => {
+    const token = localStorage.getItem('workquest_token');
+    const userStr = localStorage.getItem('workquest_user');
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+        if (user.role === 'Admin') {
+          setAppState('ceo_dashboard');
+        } else if (user.role === 'Manager') {
+          setAppState('manager_dashboard');
+        } else {
+          setAppState('employee_dashboard');
+        }
+      } catch (e) {
+        console.error("Failed to parse persisted user session", e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -341,9 +440,13 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         localStorage.setItem('workquest_token', data.token);
+        localStorage.setItem('workquest_user', JSON.stringify(data.user));
         setCurrentUser(data.user);
         
-        if (data.user.role === 'Manager' || data.user.role === 'Admin') {
+        if (data.user.role === 'Admin') {
+          setAppState('ceo_dashboard');
+          triggerNotification("Executive system access enabled", "success");
+        } else if (data.user.role === 'Manager') {
           setAppState('manager_dashboard');
           triggerNotification("Secured administrator level access token", "success");
         } else {
@@ -358,12 +461,22 @@ export default function Home() {
       }
     } catch (err) {
       console.warn("Express server offline. Loading mock user account.", err);
-      if (authEmail.includes('manager') || authEmail.includes('sarah')) {
+      if (authEmail.includes('admin') || authEmail.includes('ceo')) {
+        setCurrentUser(mockUsers[2]);
+        localStorage.setItem('workquest_token', 'mock_admin_token');
+        localStorage.setItem('workquest_user', JSON.stringify(mockUsers[2]));
+        setAppState('ceo_dashboard');
+        triggerNotification("Executive system access enabled (offline)", "success");
+      } else if (authEmail.includes('manager') || authEmail.includes('sarah')) {
         setCurrentUser(mockUsers[1]);
+        localStorage.setItem('workquest_token', 'mock_manager_token');
+        localStorage.setItem('workquest_user', JSON.stringify(mockUsers[1]));
         setAppState('manager_dashboard');
         triggerNotification("Secured administrator level access token (offline)", "success");
       } else {
         setCurrentUser(mockUsers[0]);
+        localStorage.setItem('workquest_token', 'mock_employee_token');
+        localStorage.setItem('workquest_user', JSON.stringify(mockUsers[0]));
         setAppState('employee_dashboard');
         triggerNotification("Logged in (offline)", "success");
         if (soundEnabled) sfx.playStreakFire();
@@ -375,7 +488,22 @@ export default function Home() {
     handleSoundClick();
     triggerNotification(`Authenticated token via ${provider === 'google' ? 'Google' : 'Microsoft'} SSO`, 'success');
     setCurrentUser(mockUsers[0]);
+    localStorage.setItem('workquest_token', 'mock_sso_token');
+    localStorage.setItem('workquest_user', JSON.stringify(mockUsers[0]));
     setAppState('employee_dashboard');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('workquest_token');
+    localStorage.removeItem('workquest_user');
+    setCurrentUser(mockUsers[0]);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', window.location.pathname);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    setAppState('landing');
+    if (soundEnabled) sfx.playClick();
+    triggerNotification("Session terminated. Token cleared.", "success");
   };
 
   // Task Assignment
@@ -577,8 +705,18 @@ export default function Home() {
     setChatInput('');
     setIsTyping(true);
 
+    const isIssueMsg = 
+      inputMsg.trim().toLowerCase().startsWith('/complaint') || 
+      inputMsg.toLowerCase().includes('issue') || 
+      inputMsg.toLowerCase().includes('problem') || 
+      inputMsg.toLowerCase().includes('broken') || 
+      inputMsg.toLowerCase().includes('not working') || 
+      inputMsg.toLowerCase().includes('bug') || 
+      inputMsg.toLowerCase().includes('error') || 
+      inputMsg.toLowerCase().includes('complaint');
+
     try {
-      const res = await fetch('/api/ai/chat', {
+      const res = await fetch(`${API_BASE}/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: inputMsg, userId: currentUser.id })
@@ -588,14 +726,52 @@ export default function Home() {
         const data = await res.json();
         setChatMessages((prev) => [...prev, { sender: 'ai', text: data.reply, timestamp: 'Just now' }]);
         if (soundEnabled) sfx.playXpGain();
+        
+        if (isIssueMsg) {
+          setTimeout(() => {
+            loadBackendData();
+          }, 400);
+        }
       } else {
         setChatMessages((prev) => [...prev, { sender: 'ai', text: "Calculations indicate offline fallback. Please check Gemini API network connections.", timestamp: 'Just now' }]);
       }
     } catch {
       setIsTyping(false);
+      if (isIssueMsg) {
+        let complaintText = inputMsg;
+        if (inputMsg.trim().toLowerCase().startsWith('/complaint')) {
+          complaintText = inputMsg.replace(/^\/complaint\s*/i, '').trim();
+        }
+        if (complaintText) {
+          const mockComp = {
+            id: Math.random().toString(),
+            userName: currentUser.name || 'Developer Engineer 01',
+            text: complaintText,
+            status: 'pending',
+            createdAt: new Date().toISOString()
+          };
+          setComplaintsList(prev => [mockComp, ...prev]);
+          setChatMessages((prev) => [...prev, { 
+            sender: 'ai', 
+            text: `🚨 SYSTEM UPLINK SECURED (OFFLINE): Issue ticket logged under Ticket ID [COMP-${Math.floor(1000 + Math.random() * 9000)}] on local storage.`, 
+            timestamp: 'Just now' 
+          }]);
+          return;
+        }
+      }
       setChatMessages((prev) => [...prev, { sender: 'ai', text: "Calculations indicate offline fallback. Please check Gemini API network connections.", timestamp: 'Just now' }]);
     }
   };
+
+  // Compute payroll statistics dynamically at the component root level
+  const totalNodes = usersList.length;
+  const totalPayroll = usersList.reduce((acc, curr) => {
+    const rawVal = String(curr.salary || '').replace(/[^0-9]/g, '');
+    return acc + (parseInt(rawVal, 10) || 115000);
+  }, 0);
+  const avgBurnout = Math.round(
+    usersList.reduce((acc, curr) => acc + (curr.burnoutScore || 15), 0) / (totalNodes || 1)
+  );
 
   return (
     <div className={`${isDarkMode ? '' : 'light-mode'} flex flex-col min-h-screen relative overflow-hidden bg-background bg-scanlines`}>
@@ -603,7 +779,7 @@ export default function Home() {
       <div className="noise-overlay" />
 
       {/* Interactive WebGL Scene sitting in the background */}
-      <ThreeCanvas />
+      <ThreeCanvas appState={appState} themeColor={currentUser.themeColor || 'cyan'} />
 
       {/* Floating HUD Telemetry Gauges (Spaceship cockpit HUD feeling) */}
       <div className="hidden lg:block fixed left-6 top-1/2 -translate-y-1/2 z-30 font-mono text-[8px] text-zinc-500 space-y-6 pointer-events-none uppercase select-none tracking-widest">
@@ -632,7 +808,17 @@ export default function Home() {
       <div className="w-full px-6 md:px-12 pt-6 relative z-40">
         <header className="max-w-7xl mx-auto px-8 py-4.5 rounded-full glass-panel border border-[#00e5ff]/20 bg-zinc-950/70 backdrop-blur-xl flex justify-between items-center relative shadow-[0_20px_50px_rgba(0,0,0,0.85)]">
           {/* Left: Branding & Core Telemetry */}
-          <div className="flex items-center gap-4 cursor-pointer" onClick={() => { setAppState('landing'); handleSoundClick(); }}>
+          <div 
+            className="flex items-center gap-4 cursor-pointer" 
+            onClick={() => { 
+              if (typeof window !== 'undefined') {
+                window.history.replaceState(null, '', window.location.pathname);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+              setAppState('landing'); 
+              handleSoundClick(); 
+            }}
+          >
             <div className="w-9 h-9 rounded-full bg-zinc-900 border border-[#00e5ff]/30 flex items-center justify-center shadow-lg relative group">
               <div className="absolute inset-0 rounded-full border border-dashed border-[#00e5ff]/50 group-hover:rotate-180 duration-[15s] ease-linear" />
               <Layers className="text-[#00e5ff]" size={16} />
@@ -669,16 +855,7 @@ export default function Home() {
 
           {/* Right: Auth Actions */}
           <div className="flex items-center gap-5 font-mono">
-            {appState === 'landing' ? (
-              <Magnet>
-                <button 
-                  onClick={() => { setAppState('login'); handleSoundClick(); }}
-                  className="px-6 py-2.5 text-[10px] tracking-widest uppercase rounded-full bg-[#00e5ff] text-black font-bold transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.35)]"
-                >
-                  Access Portal
-                </button>
-              </Magnet>
-            ) : (
+            {['employee_dashboard', 'manager_dashboard', 'ceo_dashboard'].includes(appState) ? (
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
                   <img src={currentUser.avatar} alt="" className="w-8 h-8 rounded-full border border-[#00e5ff]/30 object-cover" />
@@ -689,13 +866,36 @@ export default function Home() {
                 </div>
                 <Magnet>
                   <button 
-                    onClick={() => { setAppState('landing'); handleSoundClick(); }}
+                    onClick={handleLogout}
                     className="p-2.5 rounded-full glass-panel border-white/5 hover:border-red-500/25 text-zinc-500 hover:text-red-400 transition"
                   >
                     <LogOut size={12} />
                   </button>
                 </Magnet>
               </div>
+            ) : (
+              <Magnet>
+                <button 
+                  onClick={() => {
+                    handleSoundClick();
+                    const token = localStorage.getItem('workquest_token');
+                    const userStr = localStorage.getItem('workquest_user');
+                    if (token && userStr) {
+                      try {
+                        const user = JSON.parse(userStr);
+                        if (user.role === 'Admin') setAppState('ceo_dashboard');
+                        else if (user.role === 'Manager') setAppState('manager_dashboard');
+                        else setAppState('employee_dashboard');
+                        return;
+                      } catch {}
+                    }
+                    setAppState('login');
+                  }}
+                  className="px-6 py-2.5 text-[10px] tracking-widest uppercase rounded-full bg-[#00e5ff] text-black font-bold transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.35)]"
+                >
+                  Access Portal
+                </button>
+              </Magnet>
             )}
           </div>
         </header>
@@ -976,6 +1176,214 @@ export default function Home() {
               </div>
             </section>
 
+            {/* Interactive Section: Estimator Engine / Quest Simulator */}
+            <section className="max-w-7xl w-full px-6 py-28 border-b border-white/5 text-left relative z-20">
+              <div className="tilt-reveal flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
+                <div>
+                  <span className="text-[9px] font-mono text-[#00e5ff] uppercase tracking-widest block mb-2">{"// Telemetry Sandbox"}</span>
+                  <h2 className="text-3xl font-extrabold tracking-tight text-white uppercase font-sans">Quest Value Estimator</h2>
+                  <p className="text-zinc-400 text-xs mt-3 font-mono max-w-xl">Simulate task assignments, daily active streaks, and quality score variables to forecast your XP yield and rewards.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-stretch">
+                {/* Left Panel: Inputs (3 cols) */}
+                <div className="lg:col-span-3 glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/30 flex flex-col justify-between gap-8 relative overflow-hidden">
+                  <div className="absolute top-4 left-4 w-2 h-2 border-t border-l border-[#00e5ff]/30" />
+                  <div className="absolute top-4 right-4 w-2 h-2 border-t border-r border-[#00e5ff]/30" />
+                  <div className="absolute bottom-4 left-4 w-2 h-2 border-b border-l border-[#00e5ff]/30" />
+                  <div className="absolute bottom-4 right-4 w-2 h-2 border-b border-r border-[#00e5ff]/30" />
+                  
+                  <div className="space-y-6">
+                    {/* Selector: Department */}
+                    <div>
+                      <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-3 font-mono">Department Node</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[10px]">
+                        {(['Engineering', 'Product', 'Design', 'Marketing'] as const).map(dept => (
+                          <button
+                            key={dept}
+                            type="button"
+                            onClick={() => { setSimDept(dept); handleSoundClick(); }}
+                            className={`py-2 px-3 rounded-lg border transition duration-300 text-center capitalize cursor-pointer ${
+                              simDept === dept 
+                                ? 'border-[#00e5ff] bg-[#00e5ff]/10 text-white font-bold' 
+                                : 'border-white/5 bg-zinc-950/60 text-zinc-400 hover:border-white/10'
+                            }`}
+                          >
+                            {dept}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Task Allocator Counters */}
+                    <div>
+                      <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-3 font-mono">Allocate Task Difficulty Nodes</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-[10px]">
+                        {(['easy', 'medium', 'hard', 'extreme'] as const).map(difficulty => {
+                          const xpMap = { easy: 15, medium: 30, hard: 60, extreme: 120 };
+                          return (
+                            <div key={difficulty} className="p-3.5 rounded-xl bg-zinc-950/80 border border-white/5 flex flex-col justify-between items-center text-center gap-3">
+                              <span className="uppercase text-[8px] font-bold text-zinc-500 tracking-wider">{difficulty} ({xpMap[difficulty]} XP)</span>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTaskSimCount(difficulty, 'sub')}
+                                  className="w-6 h-6 rounded-full border border-white/10 hover:border-[#00e5ff] text-zinc-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+                                >
+                                  <Minus size={10} />
+                                </button>
+                                <span className="text-xs font-bold text-white w-4">{simTasks[difficulty]}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleTaskSimCount(difficulty, 'add')}
+                                  className="w-6 h-6 rounded-full border border-white/10 hover:border-[#00e5ff] text-zinc-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+                                >
+                                  <Plus size={10} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Sliders: Streak & Quality */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {/* Streak Slider */}
+                      <div>
+                        <div className="flex justify-between items-center mb-2 font-mono text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+                          <span>Active Streak Modifier</span>
+                          <span className="text-[#00e5ff] font-bold">{simStreak} Days</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="30"
+                          value={simStreak}
+                          onChange={(e) => { setSimStreak(parseInt(e.target.value, 10)); handleSoundClick(); }}
+                          className="w-full accent-[#00e5ff] cursor-pointer h-1 bg-zinc-900 rounded-lg appearance-none"
+                        />
+                        <div className="flex justify-between text-[8px] text-zinc-600 font-mono mt-1">
+                          <span>1 Day (1.0x)</span>
+                          <span>30 Days (~2.0x)</span>
+                        </div>
+                      </div>
+
+                      {/* Quality Score Slider */}
+                      <div>
+                        <div className="flex justify-between items-center mb-2 font-mono text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+                          <span>Target Quality Rating</span>
+                          <span className="text-[#7c3aed] font-bold">{simQuality}/10</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="4"
+                          max="10"
+                          value={simQuality}
+                          onChange={(e) => { setSimQuality(parseInt(e.target.value, 10)); handleSoundClick(); }}
+                          className="w-full accent-[#7c3aed] cursor-pointer h-1 bg-zinc-900 rounded-lg appearance-none"
+                        />
+                        <div className="flex justify-between text-[8px] text-zinc-600 font-mono mt-1">
+                          <span>4/10 (0.8x)</span>
+                          <span>10/10 (1.1x)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Submit Simulation */}
+                  <button
+                    type="button"
+                    onClick={executeSimulation}
+                    disabled={simulating}
+                    className="w-full py-4 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 disabled:opacity-50 shadow-[0_0_20px_rgba(0,229,255,0.25)] flex items-center justify-center gap-2 cyber-bracket cursor-pointer"
+                  >
+                    {simulating ? (
+                      <>
+                        <RefreshCw className="animate-spin" size={14} /> Synchronizing Neural Plexus...
+                      </>
+                    ) : (
+                      <>
+                        <Cpu size={14} /> Run Simulation
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Right Panel: Output HUD (2 cols) */}
+                <div className="lg:col-span-2 glass-panel p-8 rounded-2xl border-[#00e5ff]/20 bg-zinc-950/50 flex flex-col justify-between relative overflow-hidden text-zinc-400 font-mono text-[10px]">
+                  <div className="absolute top-4 left-4 w-2.5 h-2.5 border-t-2 border-l-2 border-[#00e5ff]" />
+                  <div className="absolute top-4 right-4 w-2.5 h-2.5 border-t-2 border-r-2 border-[#00e5ff]" />
+                  <div className="absolute bottom-4 left-4 w-2.5 h-2.5 border-b-2 border-l-2 border-[#00e5ff]" />
+                  <div className="absolute bottom-4 right-4 w-2.5 h-2.5 border-b-2 border-r-2 border-[#00e5ff]" />
+
+                  <div>
+                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-[#00e5ff]/15">
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#00e5ff] flex items-center gap-1.5"><Sparkles size={11} className="text-[#00e5ff] animate-pulse" /> Telemetry Readout</h3>
+                      <span className="text-[8px] text-zinc-500">SECURE CONNECT</span>
+                    </div>
+
+                    <div className="space-y-6">
+                      {/* Yielded XP display */}
+                      <div className="text-left">
+                        <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">Estimated Yield XP</p>
+                        <p className="text-4xl font-extrabold text-white tracking-wider mt-2.5 flex items-baseline gap-1.5 font-sans">
+                          {getSimulatedXp()}
+                          <span className="text-xs text-[#00e5ff] font-mono tracking-widest uppercase font-bold">XP</span>
+                        </p>
+                      </div>
+
+                      {/* Rank progression indicator */}
+                      <div>
+                        <div className="flex justify-between items-center text-[9px] text-zinc-500 uppercase tracking-widest mb-2 font-mono">
+                          <span>Rank Progression</span>
+                          <span className="text-white font-bold">+{Math.floor(getSimulatedXp() / 1000)} LVL</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-zinc-950 overflow-hidden relative border border-[#00e5ff]/10 mb-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
+                          <div 
+                            className="h-full bg-gradient-to-r from-[#7c3aed] to-[#00e5ff] transition-all duration-500 shadow-[0_0_10px_rgba(0,229,255,0.25)]" 
+                            style={{ width: `${(getSimulatedXp() % 1000) / 10}%` }} 
+                          />
+                        </div>
+                        <div className="flex justify-between text-[8px] text-zinc-600 font-mono uppercase">
+                          <span>LVL 1</span>
+                          <span>{1000 - (getSimulatedXp() % 1000)} XP to Next LVL</span>
+                        </div>
+                      </div>
+
+                      {/* Decoded item reward prediction */}
+                      {(() => {
+                        const simulatedXp = getSimulatedXp();
+                        const affordable = rewardList
+                          .filter(r => r.cost <= simulatedXp)
+                          .sort((a, b) => b.cost - a.cost)[0] || rewardList[2];
+                        
+                        return (
+                          <div className="p-4.5 rounded-xl bg-zinc-950/80 border border-white/5 flex flex-col gap-3.5 text-left">
+                            <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold flex items-center gap-1.5 font-mono"><Award size={11} className="text-[#00e5ff]" /> Affordable Store Loot</p>
+                            <div className="flex items-center gap-3">
+                              <img src={affordable.image} alt={affordable.title} className="w-11 h-11 rounded-lg border border-white/10 object-cover filter grayscale contrast-110 brightness-[0.75]" />
+                              <div>
+                                <h4 className="text-[10px] font-bold text-white uppercase tracking-wider leading-snug">{affordable.title}</h4>
+                                <p className="text-[8px] text-[#00e5ff] font-bold mt-1 uppercase tracking-wider">{affordable.cost} XP COST</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-4 border-t border-white/5 text-zinc-600 text-[8px] uppercase tracking-widest flex justify-between">
+                    <span>Dept Node: {simDept}</span>
+                    <span>Streak Mod: {1 + (simStreak * 0.034).toFixed(2)}x</span>
+                  </div>
+
+                </div>
+              </div>
+            </section>
+
             {/* Footer */}
             <footer className="w-full py-12 px-6 md:px-12 border-t border-[#00e5ff]/20 glass-panel mt-20 text-center text-zinc-500 font-mono text-[9px] tracking-widest uppercase relative z-20">
               <p>© 2026 WorkQuest AI. Built on Next.js 16 + React 19 + WebGL 3D. Designed for the Future of Work.</p>
@@ -999,18 +1407,27 @@ export default function Home() {
               </div>
 
               {/* Form Option Selector */}
-              <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-zinc-950 border border-white/5 mb-6 text-[10px] text-zinc-400">
+              <div className="grid grid-cols-3 gap-2 p-1 rounded-lg bg-zinc-950 border border-white/5 mb-6 text-[10px] text-zinc-400">
                 <button 
+                  type="button"
                   onClick={() => { setAuthEmail('employee1@workquest.ai'); handleSoundClick(); }} 
                   className={`py-2 rounded-md transition font-mono uppercase ${authEmail === 'employee1@workquest.ai' ? 'bg-zinc-900 text-white font-bold border border-[#00e5ff]/30' : ''}`}
                 >
-                  Dev (employee1)
+                  Dev (emp1)
                 </button>
                 <button 
+                  type="button"
                   onClick={() => { setAuthEmail('manager01@workquest.ai'); handleSoundClick(); }} 
                   className={`py-2 rounded-md transition font-mono uppercase ${authEmail === 'manager01@workquest.ai' ? 'bg-zinc-900 text-white font-bold border border-[#00e5ff]/30' : ''}`}
                 >
-                  Lead (manager01)
+                  Lead (mgr1)
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setAuthEmail('admin01@workquest.ai'); handleSoundClick(); }} 
+                  className={`py-2 rounded-md transition font-mono uppercase ${authEmail === 'admin01@workquest.ai' ? 'bg-zinc-900 text-white font-bold border border-[#00e5ff]/30' : ''}`}
+                >
+                  CEO (adm1)
                 </button>
               </div>
 
@@ -1041,7 +1458,7 @@ export default function Home() {
 
                 <button 
                   type="submit"
-                  className="w-full py-3.5 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.25)]"
+                  className="w-full py-3.5 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.25)] cyber-bracket"
                 >
                   Initialize Token
                 </button>
@@ -1168,12 +1585,18 @@ export default function Home() {
                       <p className="text-xs text-zinc-500 mt-1 font-mono">Complete assignments to yield XP points.</p>
                     </div>
                     
-                    <button 
-                      onClick={() => { setAppState('manager_dashboard'); handleSoundClick(); }}
-                      className="px-4 py-2.5 rounded-lg bg-zinc-900 border border-[#00e5ff]/25 hover:border-[#00e5ff]/50 text-[9px] text-[#00e5ff] font-mono tracking-widest uppercase transition font-bold shadow-[0_0_12px_rgba(0,229,255,0.1)]"
-                    >
-                      + Assign new quest
-                    </button>
+                    {(currentUser.role === 'Manager' || currentUser.role === 'Admin') && (
+                      <button 
+                        onClick={() => { 
+                          if (currentUser.role === 'Admin') setAppState('ceo_dashboard');
+                          else setAppState('manager_dashboard');
+                          handleSoundClick(); 
+                        }}
+                        className="px-4 py-2.5 rounded-lg bg-zinc-900 border border-[#00e5ff]/25 hover:border-[#00e5ff]/50 text-[9px] text-[#00e5ff] font-mono tracking-widest uppercase transition font-bold shadow-[0_0_12px_rgba(0,229,255,0.1)]"
+                      >
+                        {currentUser.role === 'Admin' ? 'Executive Console' : 'Manager Console'}
+                      </button>
+                    )}
                   </div>
 
                   {/* Kanban Lanes */}
@@ -1408,169 +1831,44 @@ export default function Home() {
             4. MANAGER DASHBOARD VIEW
             =================================================== */}
         {appState === 'manager_dashboard' && (
-          <div className="w-full max-w-7xl mx-auto px-6 md:px-12 py-8 relative z-20 flex flex-col gap-8 text-left">
-            
-            <div className="glass-panel p-8 rounded-2xl border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-zinc-950/40">
-              <div>
-                <h2 className="text-xl font-bold text-white uppercase tracking-wider font-sans">
-                  System Allocator: {currentUser.name}
-                  <span className="text-[9px] bg-[#00e5ff]/10 border border-[#00e5ff]/20 text-[#00e5ff] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase ml-3 shadow-[0_0_10px_rgba(0,229,255,0.15)]">
-                    Admin node
-                  </span>
-                </h2>
-                <p className="text-xs text-zinc-500 font-mono mt-2">Review pipeline logs, allocate task difficulty weight nodes, and check burnout indexes.</p>
-              </div>
+          <ManagerDashboard
+            currentUser={currentUser}
+            setAppState={setAppState}
+            managerTab={managerTab}
+            setManagerTab={setManagerTab}
+            newTaskTitle={newTaskTitle}
+            setNewTaskTitle={setNewTaskTitle}
+            newTaskDesc={newTaskDesc}
+            setNewTaskDesc={setNewTaskDesc}
+            newTaskDifficulty={newTaskDifficulty}
+            setNewTaskDifficulty={setNewTaskDifficulty}
+            newTaskAssignee={newTaskAssignee}
+            setNewTaskAssignee={setNewTaskAssignee}
+            handleAddTask={handleAddTask}
+            tasks={tasks}
+            setTaskToApprove={setTaskToApprove}
+            handleSoundClick={handleSoundClick}
+          />
+        )}
 
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => { setAppState('employee_dashboard'); handleSoundClick(); }}
-                  className="px-5 py-2.5 rounded-lg bg-zinc-900 border border-white/5 hover:border-white text-[9px] font-mono tracking-widest uppercase text-zinc-300 font-bold transition"
-                >
-                  Switch to Employee View
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              
-              {/* Task Allocator Form */}
-              <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono mb-6">Allocate Quest Ticket</h3>
-                <form onSubmit={handleAddTask} className="space-y-5 font-mono text-xs">
-                  <div>
-                    <label className="block text-zinc-400 mb-2 font-bold uppercase tracking-widest text-[9px]">Quest Title</label>
-                    <input 
-                      type="text" 
-                      value={newTaskTitle}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                      placeholder="e.g. SQLite database cache fix"
-                      required
-                      className="w-full px-4 py-3 rounded-lg bg-zinc-950 border border-white/5 text-white placeholder-zinc-700 text-xs focus:border-[#00e5ff] focus:outline-none transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-zinc-400 mb-2 font-bold uppercase tracking-widest text-[9px]">Scope Description</label>
-                    <textarea 
-                      value={newTaskDesc}
-                      onChange={(e) => setNewTaskDesc(e.target.value)}
-                      placeholder="Specify deliverables..."
-                      rows={3}
-                      className="w-full px-4 py-3 rounded-lg bg-zinc-950 border border-white/5 text-white placeholder-zinc-700 text-xs focus:border-[#00e5ff] focus:outline-none transition resize-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-zinc-400 mb-2 font-bold uppercase tracking-widest text-[9px]">Difficulty</label>
-                      <select 
-                        value={newTaskDifficulty} 
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewTaskDifficulty(e.target.value as 'easy' | 'medium' | 'hard' | 'extreme')}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-white/5 text-white text-xs focus:outline-none"
-                      >
-                        <option value="easy">Easy (10 XP)</option>
-                        <option value="medium">Medium (30 XP)</option>
-                        <option value="hard">Hard (60 XP)</option>
-                        <option value="extreme">Extreme (120 XP)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-zinc-400 mb-2 font-bold uppercase tracking-widest text-[9px]">Assignee</label>
-                      <select 
-                        value={newTaskAssignee}
-                        onChange={(e) => setNewTaskAssignee(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-[#00e5ff]/20 text-white text-xs focus:outline-none"
-                      >
-                        <option value="emp-1">Developer Engineer 01</option>
-                        <option value="emp-2">Jordan Sparks</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <button 
-                    type="submit"
-                    className="w-full mt-4 py-3.5 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.3)]"
-                  >
-                    Deploy Quest Card
-                  </button>
-                </form>
-              </div>
-
-              {/* pipeline list */}
-              <div className="lg:col-span-2 flex flex-col gap-8">
-                
-                <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">Verification Pipeline</h3>
-                    <span className="text-[8px] bg-yellow-400/10 text-yellow-400 font-mono px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-yellow-500/20">
-                      {tasks.filter(t => t.status === 'in_review').length} Pending
-                    </span>
-                  </div>
-
-                  <div className="space-y-4">
-                    {tasks.filter(t => t.status === 'in_review').length === 0 ? (
-                      <div className="py-16 text-center text-zinc-600 text-xs font-mono border border-dashed border-white/5 rounded-2xl">
-                        Pipeline clear. No quests waiting verification logs.
-                      </div>
-                    ) : (
-                      tasks.filter(t => t.status === 'in_review').map((task) => (
-                        <div key={task.id} className="p-5 rounded-xl bg-zinc-950/60 border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-white/10 transition duration-300">
-                          <div className="font-mono">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded-md bg-zinc-900 border border-white/10 text-zinc-400">
-                                {task.difficulty} ({task.xp} XP)
-                              </span>
-                              <span className="text-[9px] text-zinc-500">From: {task.assignedToName}</span>
-                            </div>
-                            <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-1 font-sans">{task.title}</h4>
-                            <p className="text-[11px] text-zinc-500">{task.description}</p>
-                          </div>
-                          
-                          <button 
-                            onClick={() => { setTaskToApprove(task); handleSoundClick(); }}
-                            className="px-4 py-2 rounded bg-emerald-500 text-black font-bold text-xs font-mono uppercase hover:bg-white transition"
-                          >
-                            Verify
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Burnout index */}
-                <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">AI Exhaustion Indexes</h3>
-                    <AlertTriangle className="text-accent animate-pulse-glow" size={16} />
-                  </div>
-                  <p className="text-xs text-zinc-500 font-mono mb-6">Indices measured via frequency of commits, backlog size, and hours active.</p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
-                    <div className="p-5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
-                      <div>
-                        <h4 className="font-bold text-white">Developer Engineer 01</h4>
-                        <p className="text-[10px] text-emerald-400 mt-1.5">Burnout: 14% (Safe)</p>
-                      </div>
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    </div>
-
-                    <div className="p-5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
-                      <div>
-                        <h4 className="font-bold text-white">Jordan Sparks</h4>
-                        <p className="text-[10px] text-red-500 mt-1.5">Burnout: 78% (Warning)</p>
-                      </div>
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
+        {appState === 'ceo_dashboard' && (
+          <CeoDashboard
+            currentUser={currentUser}
+            setAppState={setAppState}
+            ceoTab={ceoTab}
+            setCeoTab={setCeoTab}
+            usersList={usersList}
+            employeeSearch={employeeSearch}
+            setEmployeeSearch={setEmployeeSearch}
+            totalNodes={totalNodes}
+            totalPayroll={totalPayroll}
+            avgBurnout={avgBurnout}
+            handleSoundClick={handleSoundClick}
+            loadBackendData={loadBackendData}
+            triggerNotification={triggerNotification}
+            complaintsList={complaintsList}
+            setComplaintsList={setComplaintsList}
+          />
         )}
 
       </main>

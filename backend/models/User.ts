@@ -23,6 +23,11 @@ export interface IUser extends Document {
   joinedAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  streak: number;
+  themeColor: 'cyan' | 'purple' | 'emerald' | 'amber';
+  skipsLeft: number;
+  streakFreezeActive: boolean;
+  salary?: string;
 }
 
 const UserSchema: Schema = new Schema(
@@ -46,7 +51,12 @@ const UserSchema: Schema = new Schema(
     pendingTasksCount: { type: Number, default: 0 },
     commitsCount: { type: Number, default: 0 },
     location: { type: String, default: 'San Francisco, CA' },
-    joinedAt: { type: Date, default: Date.now }
+    joinedAt: { type: Date, default: Date.now },
+    streak: { type: Number, default: 5 },
+    themeColor: { type: String, enum: ['cyan', 'purple', 'emerald', 'amber'], default: 'cyan' },
+    skipsLeft: { type: Number, default: 1 },
+    streakFreezeActive: { type: Boolean, default: false },
+    salary: { type: String, default: '$115,000' }
   },
   { timestamps: true }
 );

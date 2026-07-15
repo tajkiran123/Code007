@@ -1,4 +1,4 @@
-export type Role = 'employee' | 'manager' | 'admin';
+export type Role = 'employee' | 'manager' | 'admin' | 'Employee' | 'Manager' | 'Admin';
 export type TaskDifficulty = 'easy' | 'medium' | 'hard' | 'extreme';
 export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'completed';
 export type RewardCategory = 'food' | 'electronics' | 'fashion' | 'accessories' | 'giftcards' | 'leaves';
@@ -17,6 +17,17 @@ export interface User {
   department: string;
   joinedAt: string;
   employeeId?: string;
+  themeColor?: 'cyan' | 'purple' | 'emerald' | 'amber';
+  skipsLeft?: number;
+  streakFreezeActive?: boolean;
+  salary?: string;
+  location?: string;
+  phone?: string;
+  burnoutScore?: number;
+  completedTasksCount?: number;
+  pendingTasksCount?: number;
+  commitsCount?: number;
+  status?: string;
 }
 
 export interface Task {
@@ -72,4 +83,23 @@ export interface ActivityLog {
   timestamp: string;
   type: 'task' | 'reward' | 'badge' | 'streak';
   value?: string;
+}
+
+export interface ClientProject {
+  id: string;
+  clientName: string;
+  projectName: string;
+  status: 'Active' | 'Completed' | 'On Hold' | 'In Review';
+  dueDate: string;
+}
+
+export interface EmployeeAttendance {
+  id: string;
+  employeeName: string;
+  employeeId: string;
+  presentDays: number;
+  leaveDays: number;
+  absentDays: number;
+  attendanceRate: number;
+  dailyStatus: ('present' | 'leave' | 'absent' | 'weekend')[];
 }

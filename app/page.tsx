@@ -24,6 +24,7 @@ import { User, Task, Reward, Badge, LeaderboardEntry, ActivityLog } from './type
 // WebGL Canvas & Magnetic Interaction Components
 import ThreeCanvas from './components/ThreeCanvas';
 import Magnet from './components/Magnet';
+import { ManagerDashboard, CeoDashboard } from './components/Dashboards';
 
 // ===================================================
 // DYNAMIC 3D MOUSE-TILT & SPOTLIGHT GLOW CARD WRAPPER
@@ -104,7 +105,7 @@ const getDueDate = () => new Date(Date.now() + 86400000 * 3).toISOString().split
 export default function Home() {
   // Theme & State
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [appState, setAppState] = useState<'landing' | 'login' | 'employee_dashboard' | 'manager_dashboard'>('landing');
+  const [appState, setAppState] = useState<'landing' | 'login' | 'employee_dashboard' | 'manager_dashboard' | 'ceo_dashboard'>('landing');
 
   // Authenticated User
   const [currentUser, setCurrentUser] = useState<User>(mockUsers[0]);
@@ -148,6 +149,11 @@ export default function Home() {
   const [taskToApprove, setTaskToApprove] = useState<Task | null>(null);
   const [managerQualityScore, setManagerQualityScore] = useState(9);
   const [managerFeedback, setManagerFeedback] = useState('Outstanding deployment. Commendable velocity!');
+  const [managerTab, setManagerTab] = useState<'quests' | 'clients'>('quests');
+  const [ceoTab, setCeoTab] = useState<'salaries' | 'clients' | 'attendance' | 'rewards'>('salaries');
+  const [usersList, setUsersList] = useState<User[]>(mockUsers);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [isWarping, setIsWarping] = useState(false);
 
   // Toast / System Notifications State
   const [notifications, setNotifications] = useState<{ id: string; text: string; type: 'xp' | 'badge' | 'reward' | 'success'; amount?: string }[]>([]);
@@ -200,10 +206,41 @@ export default function Home() {
         const data = await burnRes.json();
         setBurnoutReport(data);
       }
+
+      // 6. Fetch users list
+      const usersRes = await fetch(`${API_BASE}/users`);
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        setUsersList(data.map((u: { _id?: string; id?: string }) => ({
+          ...u,
+          id: u._id || u.id
+        })));
+      }
     } catch (err) {
       console.warn("WorkQuest API server offline. Using local telemetry state.", err);
     }
   };
+
+  // Load token on mount
+  useEffect(() => {
+    const token = localStorage.getItem('workquest_token');
+    const userStr = localStorage.getItem('workquest_user');
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+        if (user.role === 'Admin') {
+          setAppState('ceo_dashboard');
+        } else if (user.role === 'Manager') {
+          setAppState('manager_dashboard');
+        } else {
+          setAppState('employee_dashboard');
+        }
+      } catch (e) {
+        console.error("Failed to parse persisted user session", e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -341,9 +378,13 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         localStorage.setItem('workquest_token', data.token);
+        localStorage.setItem('workquest_user', JSON.stringify(data.user));
         setCurrentUser(data.user);
         
-        if (data.user.role === 'Manager' || data.user.role === 'Admin') {
+        if (data.user.role === 'Admin') {
+          setAppState('ceo_dashboard');
+          triggerNotification("Executive system access enabled", "success");
+        } else if (data.user.role === 'Manager') {
           setAppState('manager_dashboard');
           triggerNotification("Secured administrator level access token", "success");
         } else {
@@ -358,12 +399,22 @@ export default function Home() {
       }
     } catch (err) {
       console.warn("Express server offline. Loading mock user account.", err);
-      if (authEmail.includes('manager') || authEmail.includes('sarah')) {
+      if (authEmail.includes('admin') || authEmail.includes('ceo')) {
+        setCurrentUser(mockUsers[2]);
+        localStorage.setItem('workquest_token', 'mock_admin_token');
+        localStorage.setItem('workquest_user', JSON.stringify(mockUsers[2]));
+        setAppState('ceo_dashboard');
+        triggerNotification("Executive system access enabled (offline)", "success");
+      } else if (authEmail.includes('manager') || authEmail.includes('sarah')) {
         setCurrentUser(mockUsers[1]);
+        localStorage.setItem('workquest_token', 'mock_manager_token');
+        localStorage.setItem('workquest_user', JSON.stringify(mockUsers[1]));
         setAppState('manager_dashboard');
         triggerNotification("Secured administrator level access token (offline)", "success");
       } else {
         setCurrentUser(mockUsers[0]);
+        localStorage.setItem('workquest_token', 'mock_employee_token');
+        localStorage.setItem('workquest_user', JSON.stringify(mockUsers[0]));
         setAppState('employee_dashboard');
         triggerNotification("Logged in (offline)", "success");
         if (soundEnabled) sfx.playStreakFire();
@@ -375,7 +426,18 @@ export default function Home() {
     handleSoundClick();
     triggerNotification(`Authenticated token via ${provider === 'google' ? 'Google' : 'Microsoft'} SSO`, 'success');
     setCurrentUser(mockUsers[0]);
+    localStorage.setItem('workquest_token', 'mock_sso_token');
+    localStorage.setItem('workquest_user', JSON.stringify(mockUsers[0]));
     setAppState('employee_dashboard');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('workquest_token');
+    localStorage.removeItem('workquest_user');
+    setCurrentUser(mockUsers[0]);
+    setAppState('landing');
+    if (soundEnabled) sfx.playClick();
+    triggerNotification("Session terminated. Token cleared.", "success");
   };
 
   // Task Assignment
@@ -597,13 +659,23 @@ export default function Home() {
     }
   };
 
+  // Compute payroll statistics dynamically at the component root level
+  const totalNodes = usersList.length;
+  const totalPayroll = usersList.reduce((acc, curr) => {
+    const rawVal = String(curr.salary || '').replace(/[^0-9]/g, '');
+    return acc + (parseInt(rawVal, 10) || 115000);
+  }, 0);
+  const avgBurnout = Math.round(
+    usersList.reduce((acc, curr) => acc + (curr.burnoutScore || 15), 0) / (totalNodes || 1)
+  );
+
   return (
     <div className={`${isDarkMode ? '' : 'light-mode'} flex flex-col min-h-screen relative overflow-hidden bg-background bg-scanlines`}>
       {/* Noise Texture layer */}
       <div className="noise-overlay" />
 
       {/* Interactive WebGL Scene sitting in the background */}
-      <ThreeCanvas />
+      <ThreeCanvas appState={appState} themeColor={currentUser.themeColor || 'cyan'} />
 
       {/* Floating HUD Telemetry Gauges (Spaceship cockpit HUD feeling) */}
       <div className="hidden lg:block fixed left-6 top-1/2 -translate-y-1/2 z-30 font-mono text-[8px] text-zinc-500 space-y-6 pointer-events-none uppercase select-none tracking-widest">
@@ -669,16 +741,7 @@ export default function Home() {
 
           {/* Right: Auth Actions */}
           <div className="flex items-center gap-5 font-mono">
-            {appState === 'landing' ? (
-              <Magnet>
-                <button 
-                  onClick={() => { setAppState('login'); handleSoundClick(); }}
-                  className="px-6 py-2.5 text-[10px] tracking-widest uppercase rounded-full bg-[#00e5ff] text-black font-bold transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.35)]"
-                >
-                  Access Portal
-                </button>
-              </Magnet>
-            ) : (
+            {['employee_dashboard', 'manager_dashboard', 'ceo_dashboard'].includes(appState) ? (
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
                   <img src={currentUser.avatar} alt="" className="w-8 h-8 rounded-full border border-[#00e5ff]/30 object-cover" />
@@ -689,13 +752,36 @@ export default function Home() {
                 </div>
                 <Magnet>
                   <button 
-                    onClick={() => { setAppState('landing'); handleSoundClick(); }}
+                    onClick={handleLogout}
                     className="p-2.5 rounded-full glass-panel border-white/5 hover:border-red-500/25 text-zinc-500 hover:text-red-400 transition"
                   >
                     <LogOut size={12} />
                   </button>
                 </Magnet>
               </div>
+            ) : (
+              <Magnet>
+                <button 
+                  onClick={() => {
+                    handleSoundClick();
+                    const token = localStorage.getItem('workquest_token');
+                    const userStr = localStorage.getItem('workquest_user');
+                    if (token && userStr) {
+                      try {
+                        const user = JSON.parse(userStr);
+                        if (user.role === 'Admin') setAppState('ceo_dashboard');
+                        else if (user.role === 'Manager') setAppState('manager_dashboard');
+                        else setAppState('employee_dashboard');
+                        return;
+                      } catch {}
+                    }
+                    setAppState('login');
+                  }}
+                  className="px-6 py-2.5 text-[10px] tracking-widest uppercase rounded-full bg-[#00e5ff] text-black font-bold transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.35)]"
+                >
+                  Access Portal
+                </button>
+              </Magnet>
             )}
           </div>
         </header>
@@ -999,18 +1085,27 @@ export default function Home() {
               </div>
 
               {/* Form Option Selector */}
-              <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-zinc-950 border border-white/5 mb-6 text-[10px] text-zinc-400">
+              <div className="grid grid-cols-3 gap-2 p-1 rounded-lg bg-zinc-950 border border-white/5 mb-6 text-[10px] text-zinc-400">
                 <button 
+                  type="button"
                   onClick={() => { setAuthEmail('employee1@workquest.ai'); handleSoundClick(); }} 
                   className={`py-2 rounded-md transition font-mono uppercase ${authEmail === 'employee1@workquest.ai' ? 'bg-zinc-900 text-white font-bold border border-[#00e5ff]/30' : ''}`}
                 >
-                  Dev (employee1)
+                  Dev (emp1)
                 </button>
                 <button 
+                  type="button"
                   onClick={() => { setAuthEmail('manager01@workquest.ai'); handleSoundClick(); }} 
                   className={`py-2 rounded-md transition font-mono uppercase ${authEmail === 'manager01@workquest.ai' ? 'bg-zinc-900 text-white font-bold border border-[#00e5ff]/30' : ''}`}
                 >
-                  Lead (manager01)
+                  Lead (mgr1)
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setAuthEmail('admin01@workquest.ai'); handleSoundClick(); }} 
+                  className={`py-2 rounded-md transition font-mono uppercase ${authEmail === 'admin01@workquest.ai' ? 'bg-zinc-900 text-white font-bold border border-[#00e5ff]/30' : ''}`}
+                >
+                  CEO (adm1)
                 </button>
               </div>
 
@@ -1168,12 +1263,18 @@ export default function Home() {
                       <p className="text-xs text-zinc-500 mt-1 font-mono">Complete assignments to yield XP points.</p>
                     </div>
                     
-                    <button 
-                      onClick={() => { setAppState('manager_dashboard'); handleSoundClick(); }}
-                      className="px-4 py-2.5 rounded-lg bg-zinc-900 border border-[#00e5ff]/25 hover:border-[#00e5ff]/50 text-[9px] text-[#00e5ff] font-mono tracking-widest uppercase transition font-bold shadow-[0_0_12px_rgba(0,229,255,0.1)]"
-                    >
-                      + Assign new quest
-                    </button>
+                    {(currentUser.role === 'Manager' || currentUser.role === 'Admin') && (
+                      <button 
+                        onClick={() => { 
+                          if (currentUser.role === 'Admin') setAppState('ceo_dashboard');
+                          else setAppState('manager_dashboard');
+                          handleSoundClick(); 
+                        }}
+                        className="px-4 py-2.5 rounded-lg bg-zinc-900 border border-[#00e5ff]/25 hover:border-[#00e5ff]/50 text-[9px] text-[#00e5ff] font-mono tracking-widest uppercase transition font-bold shadow-[0_0_12px_rgba(0,229,255,0.1)]"
+                      >
+                        {currentUser.role === 'Admin' ? 'Executive Console' : 'Manager Console'}
+                      </button>
+                    )}
                   </div>
 
                   {/* Kanban Lanes */}
@@ -1408,169 +1509,42 @@ export default function Home() {
             4. MANAGER DASHBOARD VIEW
             =================================================== */}
         {appState === 'manager_dashboard' && (
-          <div className="w-full max-w-7xl mx-auto px-6 md:px-12 py-8 relative z-20 flex flex-col gap-8 text-left">
-            
-            <div className="glass-panel p-8 rounded-2xl border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-zinc-950/40">
-              <div>
-                <h2 className="text-xl font-bold text-white uppercase tracking-wider font-sans">
-                  System Allocator: {currentUser.name}
-                  <span className="text-[9px] bg-[#00e5ff]/10 border border-[#00e5ff]/20 text-[#00e5ff] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase ml-3 shadow-[0_0_10px_rgba(0,229,255,0.15)]">
-                    Admin node
-                  </span>
-                </h2>
-                <p className="text-xs text-zinc-500 font-mono mt-2">Review pipeline logs, allocate task difficulty weight nodes, and check burnout indexes.</p>
-              </div>
+          <ManagerDashboard
+            currentUser={currentUser}
+            setAppState={setAppState}
+            managerTab={managerTab}
+            setManagerTab={setManagerTab}
+            newTaskTitle={newTaskTitle}
+            setNewTaskTitle={setNewTaskTitle}
+            newTaskDesc={newTaskDesc}
+            setNewTaskDesc={setNewTaskDesc}
+            newTaskDifficulty={newTaskDifficulty}
+            setNewTaskDifficulty={setNewTaskDifficulty}
+            newTaskAssignee={newTaskAssignee}
+            setNewTaskAssignee={setNewTaskAssignee}
+            handleAddTask={handleAddTask}
+            tasks={tasks}
+            setTaskToApprove={setTaskToApprove}
+            handleSoundClick={handleSoundClick}
+          />
+        )}
 
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => { setAppState('employee_dashboard'); handleSoundClick(); }}
-                  className="px-5 py-2.5 rounded-lg bg-zinc-900 border border-white/5 hover:border-white text-[9px] font-mono tracking-widest uppercase text-zinc-300 font-bold transition"
-                >
-                  Switch to Employee View
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              
-              {/* Task Allocator Form */}
-              <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono mb-6">Allocate Quest Ticket</h3>
-                <form onSubmit={handleAddTask} className="space-y-5 font-mono text-xs">
-                  <div>
-                    <label className="block text-zinc-400 mb-2 font-bold uppercase tracking-widest text-[9px]">Quest Title</label>
-                    <input 
-                      type="text" 
-                      value={newTaskTitle}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                      placeholder="e.g. SQLite database cache fix"
-                      required
-                      className="w-full px-4 py-3 rounded-lg bg-zinc-950 border border-white/5 text-white placeholder-zinc-700 text-xs focus:border-[#00e5ff] focus:outline-none transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-zinc-400 mb-2 font-bold uppercase tracking-widest text-[9px]">Scope Description</label>
-                    <textarea 
-                      value={newTaskDesc}
-                      onChange={(e) => setNewTaskDesc(e.target.value)}
-                      placeholder="Specify deliverables..."
-                      rows={3}
-                      className="w-full px-4 py-3 rounded-lg bg-zinc-950 border border-white/5 text-white placeholder-zinc-700 text-xs focus:border-[#00e5ff] focus:outline-none transition resize-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-zinc-400 mb-2 font-bold uppercase tracking-widest text-[9px]">Difficulty</label>
-                      <select 
-                        value={newTaskDifficulty} 
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewTaskDifficulty(e.target.value as 'easy' | 'medium' | 'hard' | 'extreme')}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-white/5 text-white text-xs focus:outline-none"
-                      >
-                        <option value="easy">Easy (10 XP)</option>
-                        <option value="medium">Medium (30 XP)</option>
-                        <option value="hard">Hard (60 XP)</option>
-                        <option value="extreme">Extreme (120 XP)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-zinc-400 mb-2 font-bold uppercase tracking-widest text-[9px]">Assignee</label>
-                      <select 
-                        value={newTaskAssignee}
-                        onChange={(e) => setNewTaskAssignee(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-[#00e5ff]/20 text-white text-xs focus:outline-none"
-                      >
-                        <option value="emp-1">Developer Engineer 01</option>
-                        <option value="emp-2">Jordan Sparks</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <button 
-                    type="submit"
-                    className="w-full mt-4 py-3.5 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.3)]"
-                  >
-                    Deploy Quest Card
-                  </button>
-                </form>
-              </div>
-
-              {/* pipeline list */}
-              <div className="lg:col-span-2 flex flex-col gap-8">
-                
-                <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">Verification Pipeline</h3>
-                    <span className="text-[8px] bg-yellow-400/10 text-yellow-400 font-mono px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-yellow-500/20">
-                      {tasks.filter(t => t.status === 'in_review').length} Pending
-                    </span>
-                  </div>
-
-                  <div className="space-y-4">
-                    {tasks.filter(t => t.status === 'in_review').length === 0 ? (
-                      <div className="py-16 text-center text-zinc-600 text-xs font-mono border border-dashed border-white/5 rounded-2xl">
-                        Pipeline clear. No quests waiting verification logs.
-                      </div>
-                    ) : (
-                      tasks.filter(t => t.status === 'in_review').map((task) => (
-                        <div key={task.id} className="p-5 rounded-xl bg-zinc-950/60 border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-white/10 transition duration-300">
-                          <div className="font-mono">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded-md bg-zinc-900 border border-white/10 text-zinc-400">
-                                {task.difficulty} ({task.xp} XP)
-                              </span>
-                              <span className="text-[9px] text-zinc-500">From: {task.assignedToName}</span>
-                            </div>
-                            <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-1 font-sans">{task.title}</h4>
-                            <p className="text-[11px] text-zinc-500">{task.description}</p>
-                          </div>
-                          
-                          <button 
-                            onClick={() => { setTaskToApprove(task); handleSoundClick(); }}
-                            className="px-4 py-2 rounded bg-emerald-500 text-black font-bold text-xs font-mono uppercase hover:bg-white transition"
-                          >
-                            Verify
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Burnout index */}
-                <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">AI Exhaustion Indexes</h3>
-                    <AlertTriangle className="text-accent animate-pulse-glow" size={16} />
-                  </div>
-                  <p className="text-xs text-zinc-500 font-mono mb-6">Indices measured via frequency of commits, backlog size, and hours active.</p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
-                    <div className="p-5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
-                      <div>
-                        <h4 className="font-bold text-white">Developer Engineer 01</h4>
-                        <p className="text-[10px] text-emerald-400 mt-1.5">Burnout: 14% (Safe)</p>
-                      </div>
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    </div>
-
-                    <div className="p-5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
-                      <div>
-                        <h4 className="font-bold text-white">Jordan Sparks</h4>
-                        <p className="text-[10px] text-red-500 mt-1.5">Burnout: 78% (Warning)</p>
-                      </div>
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
+        {appState === 'ceo_dashboard' && (
+          <CeoDashboard
+            currentUser={currentUser}
+            setAppState={setAppState}
+            ceoTab={ceoTab}
+            setCeoTab={setCeoTab}
+            usersList={usersList}
+            employeeSearch={employeeSearch}
+            setEmployeeSearch={setEmployeeSearch}
+            totalNodes={totalNodes}
+            totalPayroll={totalPayroll}
+            avgBurnout={avgBurnout}
+            handleSoundClick={handleSoundClick}
+            loadBackendData={loadBackendData}
+            triggerNotification={triggerNotification}
+          />
         )}
 
       </main>

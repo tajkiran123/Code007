@@ -90,4 +90,41 @@ router.post('/redeem', async (req: Request, res: Response): Promise<any> => {
   }
 });
 
+// @route   POST /api/rewards
+// @desc    Add a new reward to the marketplace
+router.post('/', async (req: Request, res: Response): Promise<any> => {
+  const { title, description, cost, stock, image, category } = req.body;
+
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚠️ MongoDB offline. Simulating reward creation.');
+      return res.status(201).json({
+        id: `mock-reward-${Math.random().toString(36).substr(2, 9)}`,
+        title,
+        description,
+        cost: Number(cost) || 1000,
+        stock: Number(stock) || 10,
+        image: image || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=400',
+        category: category || 'Hardware'
+      });
+    }
+
+    const newReward = new Marketplace({
+      title,
+      description,
+      cost: Number(cost) || 1000,
+      stock: Number(stock) || 10,
+      image: image || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=400',
+      category: category || 'Hardware'
+    });
+
+    await newReward.save();
+    return res.status(201).json(newReward);
+  } catch (err) {
+    console.error('Create reward error:', err);
+    return res.status(500).json({ error: 'Failed to register new reward item.' });
+  }
+});
+
 export default router;

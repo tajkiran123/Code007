@@ -7,7 +7,7 @@ import {
   Trash2, ShieldCheck, TrendingUp, Moon, Sun, ArrowRight, Zap, 
   ChevronDown, Search, ArrowUpRight, Check, Send, AlertTriangle, 
   PieChart, MessageSquare, LogOut, Code, RefreshCw, Layers,
-  ChevronLeft
+  ChevronLeft, Minus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -150,14 +150,65 @@ export default function Home() {
   const [managerQualityScore, setManagerQualityScore] = useState(9);
   const [managerFeedback, setManagerFeedback] = useState('Outstanding deployment. Commendable velocity!');
   const [managerTab, setManagerTab] = useState<'quests' | 'clients'>('quests');
-  const [ceoTab, setCeoTab] = useState<'salaries' | 'clients' | 'attendance' | 'rewards'>('salaries');
+  const [ceoTab, setCeoTab] = useState<'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues'>('salaries');
   const [usersList, setUsersList] = useState<User[]>(mockUsers);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [isWarping, setIsWarping] = useState(false);
 
-  // Toast / System Notifications State
   const [notifications, setNotifications] = useState<{ id: string; text: string; type: 'xp' | 'badge' | 'reward' | 'success'; amount?: string }[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Issues / Complaints state
+  const [complaintsList, setComplaintsList] = useState<any[]>([
+    { id: '1', userName: 'Developer Engineer 01', text: 'Slow loading times on the dev environment.', status: 'pending', createdAt: new Date(Date.now() - 3600000).toISOString() },
+    { id: '2', userName: 'Developer Engineer 02', text: 'Telemetry metrics missing for Cloud project.', status: 'reviewed', createdAt: new Date(Date.now() - 7200000).toISOString() }
+  ]);
+
+  // Interactive Quest Value Estimator Simulator State
+  const [simDept, setSimDept] = useState<'Engineering' | 'Product' | 'Design' | 'Marketing'>('Engineering');
+  const [simTasks, setSimTasks] = useState({ easy: 2, medium: 1, hard: 0, extreme: 0 });
+  const [simStreak, setSimStreak] = useState(5);
+  const [simQuality, setSimQuality] = useState(8);
+  const [simulating, setSimulating] = useState(false);
+
+  const handleTaskSimCount = (difficulty: 'easy' | 'medium' | 'hard' | 'extreme', operation: 'add' | 'sub') => {
+    handleSoundClick();
+    setSimTasks(prev => {
+      const current = prev[difficulty];
+      const nextVal = operation === 'add' ? current + 1 : Math.max(0, current - 1);
+      return { ...prev, [difficulty]: nextVal };
+    });
+  };
+
+  const getSimulatedXp = () => {
+    let base = 0;
+    base += simTasks.easy * 15;
+    base += simTasks.medium * 30;
+    base += simTasks.hard * 60;
+    base += simTasks.extreme * 120;
+    
+    const qualityMult = 0.6 + (simQuality * 0.05);
+    const streakMult = 1 + (simStreak * 0.034);
+    return Math.round(base * qualityMult * streakMult);
+  };
+
+  const executeSimulation = () => {
+    handleSoundClick();
+    setSimulating(true);
+    const xp = getSimulatedXp();
+    setTimeout(() => {
+      setSimulating(false);
+      triggerNotification(`Simulation finished. Yielded +${xp} XP!`, "xp", `${xp}`);
+      if (xp >= 1000) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.8 },
+          colors: ['#00e5ff', '#7c3aed', '#00ff66']
+        });
+      }
+    }, 800);
+  };
 
   // Load telemetry data from MongoDB backend
   const loadBackendData = async () => {
@@ -215,6 +266,17 @@ export default function Home() {
           ...u,
           id: u._id || u.id
         })));
+      }
+
+      // 7. Fetch complaints / issues list
+      try {
+        const complaintsRes = await fetch(`${API_BASE}/ai/complaints`);
+        if (complaintsRes.ok) {
+          const data = await complaintsRes.json();
+          setComplaintsList(data);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch complaints", err);
       }
     } catch (err) {
       console.warn("WorkQuest API server offline. Using local telemetry state.", err);
@@ -435,6 +497,10 @@ export default function Home() {
     localStorage.removeItem('workquest_token');
     localStorage.removeItem('workquest_user');
     setCurrentUser(mockUsers[0]);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', window.location.pathname);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     setAppState('landing');
     if (soundEnabled) sfx.playClick();
     triggerNotification("Session terminated. Token cleared.", "success");
@@ -639,8 +705,18 @@ export default function Home() {
     setChatInput('');
     setIsTyping(true);
 
+    const isIssueMsg = 
+      inputMsg.trim().toLowerCase().startsWith('/complaint') || 
+      inputMsg.toLowerCase().includes('issue') || 
+      inputMsg.toLowerCase().includes('problem') || 
+      inputMsg.toLowerCase().includes('broken') || 
+      inputMsg.toLowerCase().includes('not working') || 
+      inputMsg.toLowerCase().includes('bug') || 
+      inputMsg.toLowerCase().includes('error') || 
+      inputMsg.toLowerCase().includes('complaint');
+
     try {
-      const res = await fetch('/api/ai/chat', {
+      const res = await fetch(`${API_BASE}/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: inputMsg, userId: currentUser.id })
@@ -650,11 +726,39 @@ export default function Home() {
         const data = await res.json();
         setChatMessages((prev) => [...prev, { sender: 'ai', text: data.reply, timestamp: 'Just now' }]);
         if (soundEnabled) sfx.playXpGain();
+        
+        if (isIssueMsg) {
+          setTimeout(() => {
+            loadBackendData();
+          }, 400);
+        }
       } else {
         setChatMessages((prev) => [...prev, { sender: 'ai', text: "Calculations indicate offline fallback. Please check Gemini API network connections.", timestamp: 'Just now' }]);
       }
     } catch {
       setIsTyping(false);
+      if (isIssueMsg) {
+        let complaintText = inputMsg;
+        if (inputMsg.trim().toLowerCase().startsWith('/complaint')) {
+          complaintText = inputMsg.replace(/^\/complaint\s*/i, '').trim();
+        }
+        if (complaintText) {
+          const mockComp = {
+            id: Math.random().toString(),
+            userName: currentUser.name || 'Developer Engineer 01',
+            text: complaintText,
+            status: 'pending',
+            createdAt: new Date().toISOString()
+          };
+          setComplaintsList(prev => [mockComp, ...prev]);
+          setChatMessages((prev) => [...prev, { 
+            sender: 'ai', 
+            text: `🚨 SYSTEM UPLINK SECURED (OFFLINE): Issue ticket logged under Ticket ID [COMP-${Math.floor(1000 + Math.random() * 9000)}] on local storage.`, 
+            timestamp: 'Just now' 
+          }]);
+          return;
+        }
+      }
       setChatMessages((prev) => [...prev, { sender: 'ai', text: "Calculations indicate offline fallback. Please check Gemini API network connections.", timestamp: 'Just now' }]);
     }
   };
@@ -704,7 +808,17 @@ export default function Home() {
       <div className="w-full px-6 md:px-12 pt-6 relative z-40">
         <header className="max-w-7xl mx-auto px-8 py-4.5 rounded-full glass-panel border border-[#00e5ff]/20 bg-zinc-950/70 backdrop-blur-xl flex justify-between items-center relative shadow-[0_20px_50px_rgba(0,0,0,0.85)]">
           {/* Left: Branding & Core Telemetry */}
-          <div className="flex items-center gap-4 cursor-pointer" onClick={() => { setAppState('landing'); handleSoundClick(); }}>
+          <div 
+            className="flex items-center gap-4 cursor-pointer" 
+            onClick={() => { 
+              if (typeof window !== 'undefined') {
+                window.history.replaceState(null, '', window.location.pathname);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+              setAppState('landing'); 
+              handleSoundClick(); 
+            }}
+          >
             <div className="w-9 h-9 rounded-full bg-zinc-900 border border-[#00e5ff]/30 flex items-center justify-center shadow-lg relative group">
               <div className="absolute inset-0 rounded-full border border-dashed border-[#00e5ff]/50 group-hover:rotate-180 duration-[15s] ease-linear" />
               <Layers className="text-[#00e5ff]" size={16} />
@@ -1062,6 +1176,214 @@ export default function Home() {
               </div>
             </section>
 
+            {/* Interactive Section: Estimator Engine / Quest Simulator */}
+            <section className="max-w-7xl w-full px-6 py-28 border-b border-white/5 text-left relative z-20">
+              <div className="tilt-reveal flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
+                <div>
+                  <span className="text-[9px] font-mono text-[#00e5ff] uppercase tracking-widest block mb-2">{"// Telemetry Sandbox"}</span>
+                  <h2 className="text-3xl font-extrabold tracking-tight text-white uppercase font-sans">Quest Value Estimator</h2>
+                  <p className="text-zinc-400 text-xs mt-3 font-mono max-w-xl">Simulate task assignments, daily active streaks, and quality score variables to forecast your XP yield and rewards.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-stretch">
+                {/* Left Panel: Inputs (3 cols) */}
+                <div className="lg:col-span-3 glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/30 flex flex-col justify-between gap-8 relative overflow-hidden">
+                  <div className="absolute top-4 left-4 w-2 h-2 border-t border-l border-[#00e5ff]/30" />
+                  <div className="absolute top-4 right-4 w-2 h-2 border-t border-r border-[#00e5ff]/30" />
+                  <div className="absolute bottom-4 left-4 w-2 h-2 border-b border-l border-[#00e5ff]/30" />
+                  <div className="absolute bottom-4 right-4 w-2 h-2 border-b border-r border-[#00e5ff]/30" />
+                  
+                  <div className="space-y-6">
+                    {/* Selector: Department */}
+                    <div>
+                      <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-3 font-mono">Department Node</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[10px]">
+                        {(['Engineering', 'Product', 'Design', 'Marketing'] as const).map(dept => (
+                          <button
+                            key={dept}
+                            type="button"
+                            onClick={() => { setSimDept(dept); handleSoundClick(); }}
+                            className={`py-2 px-3 rounded-lg border transition duration-300 text-center capitalize cursor-pointer ${
+                              simDept === dept 
+                                ? 'border-[#00e5ff] bg-[#00e5ff]/10 text-white font-bold' 
+                                : 'border-white/5 bg-zinc-950/60 text-zinc-400 hover:border-white/10'
+                            }`}
+                          >
+                            {dept}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Task Allocator Counters */}
+                    <div>
+                      <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-3 font-mono">Allocate Task Difficulty Nodes</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-[10px]">
+                        {(['easy', 'medium', 'hard', 'extreme'] as const).map(difficulty => {
+                          const xpMap = { easy: 15, medium: 30, hard: 60, extreme: 120 };
+                          return (
+                            <div key={difficulty} className="p-3.5 rounded-xl bg-zinc-950/80 border border-white/5 flex flex-col justify-between items-center text-center gap-3">
+                              <span className="uppercase text-[8px] font-bold text-zinc-500 tracking-wider">{difficulty} ({xpMap[difficulty]} XP)</span>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTaskSimCount(difficulty, 'sub')}
+                                  className="w-6 h-6 rounded-full border border-white/10 hover:border-[#00e5ff] text-zinc-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+                                >
+                                  <Minus size={10} />
+                                </button>
+                                <span className="text-xs font-bold text-white w-4">{simTasks[difficulty]}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleTaskSimCount(difficulty, 'add')}
+                                  className="w-6 h-6 rounded-full border border-white/10 hover:border-[#00e5ff] text-zinc-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+                                >
+                                  <Plus size={10} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Sliders: Streak & Quality */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {/* Streak Slider */}
+                      <div>
+                        <div className="flex justify-between items-center mb-2 font-mono text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+                          <span>Active Streak Modifier</span>
+                          <span className="text-[#00e5ff] font-bold">{simStreak} Days</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="30"
+                          value={simStreak}
+                          onChange={(e) => { setSimStreak(parseInt(e.target.value, 10)); handleSoundClick(); }}
+                          className="w-full accent-[#00e5ff] cursor-pointer h-1 bg-zinc-900 rounded-lg appearance-none"
+                        />
+                        <div className="flex justify-between text-[8px] text-zinc-600 font-mono mt-1">
+                          <span>1 Day (1.0x)</span>
+                          <span>30 Days (~2.0x)</span>
+                        </div>
+                      </div>
+
+                      {/* Quality Score Slider */}
+                      <div>
+                        <div className="flex justify-between items-center mb-2 font-mono text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+                          <span>Target Quality Rating</span>
+                          <span className="text-[#7c3aed] font-bold">{simQuality}/10</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="4"
+                          max="10"
+                          value={simQuality}
+                          onChange={(e) => { setSimQuality(parseInt(e.target.value, 10)); handleSoundClick(); }}
+                          className="w-full accent-[#7c3aed] cursor-pointer h-1 bg-zinc-900 rounded-lg appearance-none"
+                        />
+                        <div className="flex justify-between text-[8px] text-zinc-600 font-mono mt-1">
+                          <span>4/10 (0.8x)</span>
+                          <span>10/10 (1.1x)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Submit Simulation */}
+                  <button
+                    type="button"
+                    onClick={executeSimulation}
+                    disabled={simulating}
+                    className="w-full py-4 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 disabled:opacity-50 shadow-[0_0_20px_rgba(0,229,255,0.25)] flex items-center justify-center gap-2 cyber-bracket cursor-pointer"
+                  >
+                    {simulating ? (
+                      <>
+                        <RefreshCw className="animate-spin" size={14} /> Synchronizing Neural Plexus...
+                      </>
+                    ) : (
+                      <>
+                        <Cpu size={14} /> Run Simulation
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Right Panel: Output HUD (2 cols) */}
+                <div className="lg:col-span-2 glass-panel p-8 rounded-2xl border-[#00e5ff]/20 bg-zinc-950/50 flex flex-col justify-between relative overflow-hidden text-zinc-400 font-mono text-[10px]">
+                  <div className="absolute top-4 left-4 w-2.5 h-2.5 border-t-2 border-l-2 border-[#00e5ff]" />
+                  <div className="absolute top-4 right-4 w-2.5 h-2.5 border-t-2 border-r-2 border-[#00e5ff]" />
+                  <div className="absolute bottom-4 left-4 w-2.5 h-2.5 border-b-2 border-l-2 border-[#00e5ff]" />
+                  <div className="absolute bottom-4 right-4 w-2.5 h-2.5 border-b-2 border-r-2 border-[#00e5ff]" />
+
+                  <div>
+                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-[#00e5ff]/15">
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#00e5ff] flex items-center gap-1.5"><Sparkles size={11} className="text-[#00e5ff] animate-pulse" /> Telemetry Readout</h3>
+                      <span className="text-[8px] text-zinc-500">SECURE CONNECT</span>
+                    </div>
+
+                    <div className="space-y-6">
+                      {/* Yielded XP display */}
+                      <div className="text-left">
+                        <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">Estimated Yield XP</p>
+                        <p className="text-4xl font-extrabold text-white tracking-wider mt-2.5 flex items-baseline gap-1.5 font-sans">
+                          {getSimulatedXp()}
+                          <span className="text-xs text-[#00e5ff] font-mono tracking-widest uppercase font-bold">XP</span>
+                        </p>
+                      </div>
+
+                      {/* Rank progression indicator */}
+                      <div>
+                        <div className="flex justify-between items-center text-[9px] text-zinc-500 uppercase tracking-widest mb-2 font-mono">
+                          <span>Rank Progression</span>
+                          <span className="text-white font-bold">+{Math.floor(getSimulatedXp() / 1000)} LVL</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-zinc-950 overflow-hidden relative border border-[#00e5ff]/10 mb-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
+                          <div 
+                            className="h-full bg-gradient-to-r from-[#7c3aed] to-[#00e5ff] transition-all duration-500 shadow-[0_0_10px_rgba(0,229,255,0.25)]" 
+                            style={{ width: `${(getSimulatedXp() % 1000) / 10}%` }} 
+                          />
+                        </div>
+                        <div className="flex justify-between text-[8px] text-zinc-600 font-mono uppercase">
+                          <span>LVL 1</span>
+                          <span>{1000 - (getSimulatedXp() % 1000)} XP to Next LVL</span>
+                        </div>
+                      </div>
+
+                      {/* Decoded item reward prediction */}
+                      {(() => {
+                        const simulatedXp = getSimulatedXp();
+                        const affordable = rewardList
+                          .filter(r => r.cost <= simulatedXp)
+                          .sort((a, b) => b.cost - a.cost)[0] || rewardList[2];
+                        
+                        return (
+                          <div className="p-4.5 rounded-xl bg-zinc-950/80 border border-white/5 flex flex-col gap-3.5 text-left">
+                            <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold flex items-center gap-1.5 font-mono"><Award size={11} className="text-[#00e5ff]" /> Affordable Store Loot</p>
+                            <div className="flex items-center gap-3">
+                              <img src={affordable.image} alt={affordable.title} className="w-11 h-11 rounded-lg border border-white/10 object-cover filter grayscale contrast-110 brightness-[0.75]" />
+                              <div>
+                                <h4 className="text-[10px] font-bold text-white uppercase tracking-wider leading-snug">{affordable.title}</h4>
+                                <p className="text-[8px] text-[#00e5ff] font-bold mt-1 uppercase tracking-wider">{affordable.cost} XP COST</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-4 border-t border-white/5 text-zinc-600 text-[8px] uppercase tracking-widest flex justify-between">
+                    <span>Dept Node: {simDept}</span>
+                    <span>Streak Mod: {1 + (simStreak * 0.034).toFixed(2)}x</span>
+                  </div>
+
+                </div>
+              </div>
+            </section>
+
             {/* Footer */}
             <footer className="w-full py-12 px-6 md:px-12 border-t border-[#00e5ff]/20 glass-panel mt-20 text-center text-zinc-500 font-mono text-[9px] tracking-widest uppercase relative z-20">
               <p>© 2026 WorkQuest AI. Built on Next.js 16 + React 19 + WebGL 3D. Designed for the Future of Work.</p>
@@ -1136,7 +1458,7 @@ export default function Home() {
 
                 <button 
                   type="submit"
-                  className="w-full py-3.5 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.25)]"
+                  className="w-full py-3.5 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.25)] cyber-bracket"
                 >
                   Initialize Token
                 </button>
@@ -1544,6 +1866,8 @@ export default function Home() {
             handleSoundClick={handleSoundClick}
             loadBackendData={loadBackendData}
             triggerNotification={triggerNotification}
+            complaintsList={complaintsList}
+            setComplaintsList={setComplaintsList}
           />
         )}
 

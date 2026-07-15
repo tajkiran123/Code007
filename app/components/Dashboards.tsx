@@ -3,7 +3,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Users, Trophy, AlertTriangle, Search, Zap, Check, Upload, Plus, Gift, Sparkles 
+  Users, Trophy, AlertTriangle, Search, Zap, Check, Upload, Plus, Gift, Sparkles,
+  AlertCircle, CheckCircle2, MessageSquare, Calendar, User as UserIcon
 } from 'lucide-react';
 import { User, Task } from '../types';
 
@@ -198,7 +199,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
 
               <button 
                 type="submit"
-                className="w-full mt-4 py-3.5 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.3)]"
+                className="w-full mt-4 py-3.5 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.3)] cyber-bracket"
               >
                 Deploy Quest Card
               </button>
@@ -342,8 +343,8 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
 interface CeoDashboardProps {
   currentUser: User;
   setAppState: (state: any) => void;
-  ceoTab: 'salaries' | 'clients' | 'attendance' | 'rewards';
-  setCeoTab: (tab: 'salaries' | 'clients' | 'attendance' | 'rewards') => void;
+  ceoTab: 'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues';
+  setCeoTab: (tab: 'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues') => void;
   usersList: User[];
   employeeSearch: string;
   setEmployeeSearch: (val: string) => void;
@@ -353,6 +354,8 @@ interface CeoDashboardProps {
   handleSoundClick: () => void;
   loadBackendData: () => void;
   triggerNotification: (text: string, type: any) => void;
+  complaintsList: any[];
+  setComplaintsList: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -371,6 +374,8 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
   handleSoundClick,
   loadBackendData,
   triggerNotification,
+  complaintsList,
+  setComplaintsList,
 }) => {
   const [rewardTitle, setRewardTitle] = React.useState('');
   const [rewardDesc, setRewardDesc] = React.useState('');
@@ -455,6 +460,27 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
       setAddStatus({ type: 'error', message: 'Server offline. Cannot register reward registry.' });
     }
   };
+
+  const handleResolveComplaint = async (complaintId: string) => {
+    handleSoundClick();
+    try {
+      const res = await fetch(`${API_BASE}/ai/complaints/${complaintId}/resolve`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        setComplaintsList(prev => prev.map(c => (c._id === complaintId || c.id === complaintId) ? { ...c, status: 'resolved' } : c));
+        triggerNotification('Complaint ticket resolved successfully', 'success');
+      } else {
+        setComplaintsList(prev => prev.map(c => (c._id === complaintId || c.id === complaintId) ? { ...c, status: 'resolved' } : c));
+        triggerNotification('Complaint resolved locally (offline)', 'success');
+      }
+    } catch {
+      setComplaintsList(prev => prev.map(c => (c._id === complaintId || c.id === complaintId) ? { ...c, status: 'resolved' } : c));
+      triggerNotification('Complaint resolved locally (offline)', 'success');
+    }
+  };
+
   return (
     <div className="w-full max-w-7xl mx-auto px-6 md:px-12 py-8 relative z-20 flex flex-col gap-8 text-left">
       <div className="glass-panel p-8 rounded-2xl border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-zinc-950/40">
@@ -517,6 +543,14 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
           }`}
         >
           <span>🎁 Store Rewards</span>
+        </button>
+        <button
+          onClick={() => { setCeoTab('issues'); handleSoundClick(); }}
+          className={`pb-3 border-b-2 transition relative flex items-center gap-2 ${
+            ceoTab === 'issues' ? 'border-[#00e5ff] text-[#00e5ff] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <span>⚠️ Issues Log</span>
         </button>
       </div>
 
@@ -949,7 +983,7 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
                 <button 
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-4 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 disabled:opacity-50 shadow-[0_0_20px_rgba(0,229,255,0.25)] flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 disabled:opacity-50 shadow-[0_0_20px_rgba(0,229,255,0.25)] flex items-center justify-center gap-2 cyber-bracket"
                 >
                   {isSubmitting ? (
                     'Transmitting Node Registry...'
@@ -1029,6 +1063,116 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
             </div>
 
           </div>
+        </motion.div>
+      )}
+
+      {ceoTab === 'issues' && (
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="w-full flex flex-col gap-8 text-left"
+        >
+          {/* Header Panel */}
+          <div className="glass-panel p-8 rounded-2xl border-[#00e5ff]/20 bg-zinc-950/40 relative overflow-hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#00e5ff]/5 rounded-full blur-3xl pointer-events-none" />
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-widest text-[#00e5ff] font-mono flex items-center gap-2">
+                <AlertCircle size={16} className="text-[#00e5ff]" />
+                CEO Issues & Complaints Audit Feed
+              </h3>
+              <p className="text-[11px] text-zinc-400 font-mono mt-2 leading-relaxed">
+                Direct system logs and complaints filed by workspace agents through chatbot coach nodes. Audit and resolve blocks to maintain team velocity.
+              </p>
+            </div>
+            <div className="flex flex-col text-right font-mono text-[10px]">
+              <span className="text-zinc-500 uppercase">TELEMETRY LINK STATUS</span>
+              <span className="text-[#00e5ff] font-bold">ONLINE // ENCRYPTED</span>
+            </div>
+          </div>
+
+          {/* Complaints Feed List */}
+          {complaintsList.length === 0 ? (
+            <div className="glass-panel py-16 px-6 text-center rounded-2xl border-emerald-500/10 bg-zinc-950/20 flex flex-col items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)]">
+                <CheckCircle2 size={24} />
+              </div>
+              <div className="font-mono">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">No Pending Issues Logged</h4>
+                <p className="text-[10px] text-zinc-500 mt-1 max-w-sm mx-auto leading-relaxed">
+                  All workspace terminals are active and reporting zero operational blocks. Keep chatbot channels listening.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {complaintsList.map((complaint, index) => {
+                const cId = complaint._id || complaint.id;
+                const formattedId = `COMP-${String(cId).slice(-4).toUpperCase() || (index + 1001)}`;
+                const isResolved = complaint.status === 'resolved';
+                
+                return (
+                  <div 
+                    key={cId}
+                    className={`glass-panel p-6 rounded-2xl border-white/5 bg-zinc-950/30 flex flex-col justify-between gap-5 relative overflow-hidden transition duration-300 ${
+                      isResolved ? 'hover:border-emerald-500/15' : 'hover:border-[#00e5ff]/20'
+                    }`}
+                  >
+                    {/* Glowing side line indicators */}
+                    <div className={`absolute top-0 left-0 w-[3px] h-full ${isResolved ? 'bg-emerald-500/50' : 'bg-amber-500/50'}`} />
+
+                    <div>
+                      {/* Ticket Header Metadata */}
+                      <div className="flex justify-between items-center pb-3.5 border-b border-white/5">
+                        <div className="flex flex-col gap-1 text-left font-mono">
+                          <span className="text-[11px] font-bold text-white tracking-wider">{formattedId}</span>
+                          <span className="text-[8px] text-zinc-500 uppercase flex items-center gap-1">
+                            <UserIcon size={9} /> {complaint.userName || 'Unknown Agent'}
+                          </span>
+                        </div>
+                        <div className="text-right font-mono flex flex-col items-end gap-1">
+                          <span className={`text-[8px] px-2 py-0.5 rounded font-bold uppercase ${
+                            isResolved 
+                              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+                              : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                          }`}>
+                            {complaint.status || 'pending'}
+                          </span>
+                          <span className="text-[7px] text-zinc-600 uppercase flex items-center gap-0.5">
+                            <Calendar size={8} /> {complaint.createdAt ? new Date(complaint.createdAt).toLocaleDateString() : 'Today'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Complaint description body */}
+                      <div className="pt-4 text-left font-mono text-[11px] text-zinc-300 leading-relaxed flex gap-2">
+                        <MessageSquare size={13} className="text-[#00e5ff] shrink-0 mt-0.5" />
+                        <p>{complaint.text}</p>
+                      </div>
+                    </div>
+
+                    {/* Action Button: Mark Resolved */}
+                    <div className="pt-4 border-t border-white/5 flex justify-end">
+                      {isResolved ? (
+                        <div className="flex items-center gap-1.5 text-emerald-400 font-mono text-[10px] uppercase font-bold">
+                          <Check size={12} /> Resolved & Archived
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleResolveComplaint(cId)}
+                          className="px-4 py-2 rounded-lg bg-[#00e5ff] hover:bg-white text-black font-bold font-mono text-[9px] uppercase tracking-widest transition duration-300 shadow-[0_0_12px_rgba(0,229,255,0.15)] cursor-pointer"
+                        >
+                          Resolve Alert
+                        </button>
+                      )}
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </motion.div>
       )}
     </div>

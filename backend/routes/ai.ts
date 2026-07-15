@@ -51,12 +51,27 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
       }
     }
 
-    // Intercept /complaint command
-    if (message.trim().toLowerCase().startsWith('/complaint')) {
-      const complaintText = message.replace(/^\/complaint\s*/i, '').trim();
+    // Intercept complaint commands or direct issue descriptions
+    const queryClean = message.trim();
+    const isComplaintCommand = queryClean.toLowerCase().startsWith('/complaint');
+    const isDirectIssue = 
+      queryClean.toLowerCase().includes('issue') || 
+      queryClean.toLowerCase().includes('problem') || 
+      queryClean.toLowerCase().includes('broken') || 
+      queryClean.toLowerCase().includes('not working') || 
+      queryClean.toLowerCase().includes('bug') || 
+      queryClean.toLowerCase().includes('error') || 
+      queryClean.toLowerCase().includes('complaint');
+
+    if (isComplaintCommand || isDirectIssue) {
+      let complaintText = queryClean;
+      if (isComplaintCommand) {
+        complaintText = queryClean.replace(/^\/complaint\s*/i, '').trim();
+      }
+      
       if (!complaintText) {
         return res.json({ 
-          reply: "🚨 TELEMETRY ERROR: Complaint message block is empty. Correct format: '/complaint <describe issue here>'." 
+          reply: "🚨 TELEMETRY ERROR: Issue description text block is empty." 
         });
       }
 
@@ -68,9 +83,9 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
             text: complaintText
           });
           await newComplaint.save();
-          console.log(`✅ Complaint logged in Atlas: ${complaintText}`);
+          console.log(`✅ Issue logged in Atlas: ${complaintText}`);
         } catch (dbErr) {
-          console.warn('Failed to save complaint to MongoDB', dbErr);
+          console.warn('Failed to save issue to MongoDB', dbErr);
         }
       }
 
@@ -83,7 +98,7 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
       }
 
       return res.json({
-        reply: `🚨 SYSTEM UPLINK SECURED: Complaint ticket successfully logged under Ticket ID [COMP-${Math.floor(1000 + Math.random() * 9000)}] on MongoDB Atlas databases. Dispatching telemetry to department Leads and HR nodes for priority audit review.`
+        reply: `🚨 SYSTEM UPLINK SECURED: Issue ticket logged under Ticket ID [COMP-${Math.floor(1000 + Math.random() * 9000)}] on MongoDB Atlas databases. Dispatching telemetry to CEO console for audit.`
       });
     }
 
@@ -723,6 +738,43 @@ router.post('/search', async (req: Request, res: Response): Promise<any> => {
     });
   } catch (err) {
     return res.status(500).json({ error: 'Natural language search query failed.' });
+  }
+});
+
+// @route   GET /api/ai/complaints
+// @desc    Retrieve all complaints logged in the database
+router.get('/complaints', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const isDbConnected = mongoose.connection.readyState === 1;
+    if (isDbConnected) {
+      const complaints = await Complaint.find().sort({ createdAt: -1 });
+      return res.json(complaints);
+    } else {
+      // Mock fallback complaints
+      return res.json([
+        { id: '1', userName: 'Developer Engineer 01', text: 'Slow loading times on the dev environment.', status: 'pending', createdAt: new Date(Date.now() - 3600000).toISOString() },
+        { id: '2', userName: 'Developer Engineer 02', text: 'Telemetry metrics missing for Cloud project.', status: 'reviewed', createdAt: new Date(Date.now() - 7200000).toISOString() }
+      ]);
+    }
+  } catch (err) {
+    console.error('Failed to get complaints', err);
+    return res.status(500).json({ error: 'Server error retrieving complaints.' });
+  }
+});
+
+// @route   PUT /api/ai/complaints/:id/resolve
+// @desc    Mark a complaint as resolved
+router.put('/complaints/:id/resolve', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const isDbConnected = mongoose.connection.readyState === 1;
+    if (isDbConnected) {
+      const complaint = await Complaint.findByIdAndUpdate(req.params.id, { status: 'resolved' }, { new: true });
+      return res.json(complaint);
+    }
+    return res.json({ success: true, status: 'resolved' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to resolve complaint.' });
   }
 });
 

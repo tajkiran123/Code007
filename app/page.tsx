@@ -7,7 +7,7 @@ import {
   Trash2, ShieldCheck, TrendingUp, Moon, Sun, ArrowRight, Zap, 
   ChevronDown, Search, ArrowUpRight, Check, Send, AlertTriangle, 
   PieChart, MessageSquare, LogOut, Code, RefreshCw, Layers,
-  ChevronLeft, Minus
+  ChevronLeft, Minus, Lock, Mail, Fingerprint, Terminal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -111,6 +111,7 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<User>(mockUsers[0]);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
 
   // Task & Board State
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
@@ -429,6 +430,9 @@ export default function Home() {
     e.preventDefault();
     handleSoundClick();
     if (!authEmail) return;
+    setAuthLoading(true);
+
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
@@ -436,6 +440,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: authEmail, password: 'Password123!' })
       });
+
+      await sleep(1500); // 1.5s visual after effect loading
 
       if (res.ok) {
         const data = await res.json();
@@ -461,6 +467,7 @@ export default function Home() {
       }
     } catch (err) {
       console.warn("Express server offline. Loading mock user account.", err);
+      await sleep(1500); // 1.5s visual after effect loading
       if (authEmail.includes('admin') || authEmail.includes('ceo')) {
         setCurrentUser(mockUsers[2]);
         localStorage.setItem('workquest_token', 'mock_admin_token');
@@ -481,16 +488,22 @@ export default function Home() {
         triggerNotification("Logged in (offline)", "success");
         if (soundEnabled) sfx.playStreakFire();
       }
+    } finally {
+      setAuthLoading(false);
     }
   };
 
-  const handleSsoLogin = (provider: 'google' | 'microsoft') => {
+  const handleSsoLogin = async (provider: 'google' | 'microsoft') => {
     handleSoundClick();
+    setAuthLoading(true);
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    await sleep(1500); // 1.5s visual after effect loading
     triggerNotification(`Authenticated token via ${provider === 'google' ? 'Google' : 'Microsoft'} SSO`, 'success');
     setCurrentUser(mockUsers[0]);
     localStorage.setItem('workquest_token', 'mock_sso_token');
     localStorage.setItem('workquest_user', JSON.stringify(mockUsers[0]));
     setAppState('employee_dashboard');
+    setAuthLoading(false);
   };
 
   const handleLogout = () => {
@@ -1396,94 +1409,193 @@ export default function Home() {
             =================================================== */}
         {appState === 'login' && (
           <div className="flex-grow flex items-center justify-center px-4 py-20 relative z-20">
-            <div className="w-full max-w-md glass-panel p-10 rounded-2xl border-[#00e5ff]/20 shadow-2xl relative overflow-hidden text-left bg-zinc-950/60 backdrop-blur-xl">
+            <TiltCard className="w-full max-w-md shadow-2xl relative overflow-hidden text-left bg-zinc-950/70 backdrop-blur-2xl border border-white/10 rounded-2xl p-0.5">
               
-              <div className="text-center mb-8">
-                <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-[#00e5ff]/30 flex items-center justify-center shadow-lg mx-auto mb-4 animate-float-ambient">
-                  <Layers className="text-[#00e5ff]" size={20} />
-                </div>
-                <h2 className="text-lg font-bold text-white uppercase tracking-wider font-sans">Verification Required</h2>
-                <p className="text-xs text-zinc-500 font-mono mt-1">Authenticate identity token for workspace sync</p>
-              </div>
-
-              {/* Form Option Selector */}
-              <div className="grid grid-cols-3 gap-2 p-1 rounded-lg bg-zinc-950 border border-white/5 mb-6 text-[10px] text-zinc-400">
-                <button 
-                  type="button"
-                  onClick={() => { setAuthEmail('employee1@workquest.ai'); handleSoundClick(); }} 
-                  className={`py-2 rounded-md transition font-mono uppercase ${authEmail === 'employee1@workquest.ai' ? 'bg-zinc-900 text-white font-bold border border-[#00e5ff]/30' : ''}`}
-                >
-                  Dev (emp1)
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => { setAuthEmail('manager01@workquest.ai'); handleSoundClick(); }} 
-                  className={`py-2 rounded-md transition font-mono uppercase ${authEmail === 'manager01@workquest.ai' ? 'bg-zinc-900 text-white font-bold border border-[#00e5ff]/30' : ''}`}
-                >
-                  Lead (mgr1)
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => { setAuthEmail('admin01@workquest.ai'); handleSoundClick(); }} 
-                  className={`py-2 rounded-md transition font-mono uppercase ${authEmail === 'admin01@workquest.ai' ? 'bg-zinc-900 text-white font-bold border border-[#00e5ff]/30' : ''}`}
-                >
-                  CEO (adm1)
-                </button>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-5 font-mono">
-                <div>
-                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Workplace Email</label>
-                  <input 
-                    type="email" 
-                    value={authEmail}
-                    onChange={(e) => setAuthEmail(e.target.value)}
-                    required
-                    placeholder="name@company.com"
-                    className="w-full px-4 py-3 rounded-lg bg-zinc-950 border border-white/5 text-white placeholder-zinc-700 text-xs focus:border-[#00e5ff] focus:outline-none transition duration-300"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Password</label>
-                    <a href="#" className="text-[10px] text-zinc-600 hover:text-zinc-300 transition">Recover?</a>
+              {/* Sci-fi backdrop auroras inside the card */}
+              <div className="absolute -top-40 -left-40 w-85 h-85 bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none" />
+              <div className="absolute -bottom-40 -right-40 w-85 h-85 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
+              
+              <div className="p-9 relative z-10 flex flex-col h-full bg-zinc-950/85 rounded-2xl border border-white/5 min-h-[420px] justify-center">
+                
+                {authLoading ? (
+                  <div className="py-12 flex flex-col items-center justify-center text-center font-mono">
+                    {/* Glowing circular loading animation */}
+                    <div className="relative w-20 h-20 mb-6 flex items-center justify-center">
+                      <div className="absolute inset-0 rounded-full border-4 border-white/5" />
+                      <div className="absolute inset-0 rounded-full border-4 border-t-[#00e5ff] border-r-purple-500/40 border-b-indigo-500/20 border-l-[#00e5ff] animate-spin" />
+                      <div className="absolute inset-3 rounded-full bg-zinc-950 border border-white/10 flex items-center justify-center">
+                        <Terminal className="text-[#00e5ff] animate-pulse" size={20} />
+                      </div>
+                    </div>
+                    
+                    {/* Status message */}
+                    <div className="space-y-2 mb-6">
+                      <h3 className="text-xs font-bold text-white uppercase tracking-widest animate-pulse">
+                        Authenticating...
+                      </h3>
+                      <p className="text-[8px] text-[#00e5ff] uppercase tracking-wider animate-cyber-blink">
+                        Resolving Telemetry Node Gateway
+                      </p>
+                    </div>
+                    
+                    {/* Live console logging logs */}
+                    <div className="w-full bg-zinc-950/95 border border-white/5 rounded-lg p-3 text-left text-[8px] text-zinc-500 font-mono space-y-1 select-none max-w-xs overflow-hidden shadow-[inset_0_2px_8px_rgba(0,0,0,0.8)]">
+                      <div className="flex justify-between">
+                        <span>NODE_PORT:</span>
+                        <span className="text-[#00e5ff]">5000</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>CONNECTION:</span>
+                        <span className="text-emerald-400">ESTABLISHED</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>AES_256_KEY:</span>
+                        <span className="text-purple-400">SYNC_ACTIVE</span>
+                      </div>
+                      <div className="text-[7px] text-zinc-600 animate-cyber-blink border-t border-white/5 pt-1.5 text-center mt-2">
+                        Do not refresh terminal connection
+                      </div>
+                    </div>
                   </div>
-                  <input 
-                    type="password" 
-                    placeholder="••••••••"
-                    className="w-full px-4 py-3 rounded-lg bg-zinc-950 border border-white/5 text-white placeholder-zinc-700 text-xs focus:border-[#00e5ff] focus:outline-none transition duration-300"
-                  />
-                </div>
+                ) : (
+                  <>
+                    {/* Header section with rotating cybernetic shield logo */}
+                    <div className="text-center mb-8">
+                      <div className="relative w-14 h-14 mx-auto mb-4 flex items-center justify-center">
+                        {/* Rotating dual boxes */}
+                        <div className="absolute inset-0 rounded-xl border border-[#00e5ff]/40 rotate-45 animate-[spin_12s_linear_infinite]" />
+                        <div className="absolute inset-1 rounded-xl border border-[#7c3aed]/30 -rotate-45 animate-[spin_8s_linear_infinite]" />
+                        {/* Center non-biometric icon */}
+                        <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-[#00e5ff]/35 flex items-center justify-center shadow-lg relative z-10">
+                          <ShieldCheck className="text-[#00e5ff] drop-shadow-[0_0_6px_rgba(0,229,255,0.6)]" size={18} />
+                        </div>
+                      </div>
+                      <h2 className="text-xl font-black uppercase tracking-wider font-sans bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-300 to-purple-400">
+                        Verification Required
+                      </h2>
+                      <p className="text-[9px] text-zinc-500 font-mono mt-1.5 tracking-widest uppercase flex items-center justify-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-ping inline-block" />
+                        Secure Workspace Gateway v3.12
+                      </p>
+                    </div>
 
-                <button 
-                  type="submit"
-                  className="w-full py-3.5 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.25)] cyber-bracket"
-                >
-                  Initialize Token
-                </button>
-              </form>
+                    {/* Form Option Selector (Quick selection of roles) */}
+                    <div className="grid grid-cols-3 gap-2 p-1 rounded-xl bg-zinc-950 border border-white/5 mb-6 text-[9px] text-zinc-400">
+                      <button 
+                        type="button"
+                        onClick={() => { setAuthEmail('employee1@workquest.ai'); handleSoundClick(); }} 
+                        className={`py-2 px-1 rounded-lg transition duration-300 font-mono uppercase flex flex-col items-center gap-1.5 ${authEmail === 'employee1@workquest.ai' ? 'bg-[#00e5ff]/10 text-white font-bold border border-[#00e5ff]/50 shadow-[0_0_15px_rgba(0,229,255,0.15)]' : 'hover:bg-zinc-900 hover:text-zinc-200'}`}
+                      >
+                        <Terminal size={12} className={authEmail === 'employee1@workquest.ai' ? 'text-[#00e5ff]' : 'text-zinc-500'} />
+                        <span>DEV (EMP)</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => { setAuthEmail('manager01@workquest.ai'); handleSoundClick(); }} 
+                        className={`py-2 px-1 rounded-lg transition duration-300 font-mono uppercase flex flex-col items-center gap-1.5 ${authEmail === 'manager01@workquest.ai' ? 'bg-purple-500/10 text-white font-bold border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.15)]' : 'hover:bg-zinc-900 hover:text-zinc-200'}`}
+                      >
+                        <Users size={12} className={authEmail === 'manager01@workquest.ai' ? 'text-purple-400' : 'text-zinc-500'} />
+                        <span>LEAD (MGR)</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => { setAuthEmail('admin01@workquest.ai'); handleSoundClick(); }} 
+                        className={`py-2 px-1 rounded-lg transition duration-300 font-mono uppercase flex flex-col items-center gap-1.5 ${authEmail === 'admin01@workquest.ai' ? 'bg-indigo-500/10 text-white font-bold border border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]' : 'hover:bg-zinc-900 hover:text-zinc-200'}`}
+                      >
+                        <ShieldCheck size={12} className={authEmail === 'admin01@workquest.ai' ? 'text-indigo-400' : 'text-zinc-500'} />
+                        <span>CEO (ADM)</span>
+                      </button>
+                    </div>
 
-              <div className="relative my-6 text-center">
-                <span className="absolute inset-x-0 top-1/2 h-px bg-[#cca43b]/10" />
-                <span className="relative bg-zinc-950 px-3 text-[9px] text-zinc-500 uppercase tracking-widest font-mono">Or SSO credentials</span>
+                    {/* Form fields */}
+                    <form onSubmit={handleLogin} className="space-y-5 font-mono">
+                      <div>
+                        <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                          <Mail size={10} className="text-[#00e5ff]" /> Workplace Email
+                        </label>
+                        <div className="relative">
+                          <input 
+                            type="email" 
+                            value={authEmail}
+                            onChange={(e) => setAuthEmail(e.target.value)}
+                            required
+                            placeholder="name@company.com"
+                            className="w-full pl-4 pr-10 py-3 rounded-lg bg-zinc-950/80 border border-white/10 text-white placeholder-zinc-700 text-xs focus:border-[#00e5ff] focus:ring-1 focus:ring-[#00e5ff]/30 focus:outline-none transition duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] font-mono"
+                          />
+                          <div className="absolute right-3 top-3.5 text-zinc-600">
+                            <Zap size={12} className="text-[#00e5ff]/30" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <Lock size={10} className="text-[#00e5ff]" /> Password
+                          </label>
+                          <a href="#" className="text-[9px] text-zinc-600 hover:text-zinc-300 transition">Recover?</a>
+                        </div>
+                        <div className="relative">
+                          <input 
+                            type="password" 
+                            placeholder="••••••••"
+                            required
+                            className="w-full pl-4 pr-10 py-3 rounded-lg bg-zinc-950/80 border border-white/10 text-white placeholder-zinc-700 text-xs focus:border-[#00e5ff] focus:ring-1 focus:ring-[#00e5ff]/30 focus:outline-none transition duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] font-mono"
+                          />
+                          <div className="absolute right-3 top-3.5 text-zinc-600">
+                            <Lock size={12} className="text-zinc-600" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Initialize Token Button */}
+                      <motion.button 
+                        type="submit"
+                        whileHover={{ scale: 1.015, boxShadow: "0 0 25px rgba(0,229,255,0.4)" }}
+                        whileTap={{ scale: 0.985 }}
+                        className="w-full py-3.5 rounded-lg bg-gradient-to-r from-cyan-400 via-teal-400 to-[#7c3aed] text-black font-black text-xs uppercase tracking-widest hover:text-white transition duration-300 shadow-[0_0_20px_rgba(0,229,255,0.25)] relative overflow-hidden cyber-bracket cursor-pointer font-sans"
+                      >
+                        <span className="relative z-10 flex items-center justify-center gap-2">
+                          Initialize Token <ArrowRight size={14} />
+                        </span>
+                      </motion.button>
+                    </form>
+
+                    {/* SSO options */}
+                    <div className="relative my-6 text-center">
+                      <span className="absolute inset-x-0 top-1/2 h-px bg-white/5" />
+                      <span className="relative bg-zinc-950 px-3 text-[8px] text-zinc-500 uppercase tracking-widest font-mono">Or SSO Credentials</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 font-mono text-[9px] uppercase">
+                      <button 
+                        onClick={() => handleSsoLogin('google')}
+                        className="w-full py-3 rounded-lg bg-zinc-950 hover:bg-zinc-900 border border-white/5 text-zinc-300 flex items-center justify-center gap-2 hover:border-[#00e5ff]/50 transition duration-300 cursor-pointer"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                        Google Account
+                      </button>
+                      <button 
+                        onClick={() => handleSsoLogin('microsoft')}
+                        className="w-full py-3 rounded-lg bg-zinc-950 hover:bg-zinc-900 border border-white/5 text-zinc-300 flex items-center justify-center gap-2 hover:border-purple-500/50 transition duration-300 cursor-pointer"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                        Microsoft AD
+                      </button>
+                    </div>
+
+                    {/* Security Diagnostic footer */}
+                    <div className="mt-8 pt-4 border-t border-white/5 flex items-center justify-between text-[8px] text-zinc-600 uppercase font-mono tracking-wider animate-pulse-glow">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>System status: Secure</span>
+                      </div>
+                      <span>Port 5000 Active</span>
+                    </div>
+                  </>
+                )}
               </div>
-
-              <div className="grid grid-cols-2 gap-4 font-mono text-[10px] uppercase">
-                <button 
-                  onClick={() => handleSsoLogin('google')}
-                  className="w-full py-2.5 rounded-lg glass-panel border-white/5 text-zinc-300 flex items-center justify-center gap-2 hover:border-[#00e5ff] transition"
-                >
-                  Google
-                </button>
-                <button 
-                  onClick={() => handleSsoLogin('microsoft')}
-                  className="w-full py-2.5 rounded-lg glass-panel border-white/5 text-zinc-300 flex items-center justify-center gap-2 hover:border-[#00e5ff] transition"
-                >
-                  Microsoft
-                </button>
-              </div>
-            </div>
+            </TiltCard>
           </div>
         )}
 

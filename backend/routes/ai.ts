@@ -42,10 +42,18 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
     let user = null;
     let tasks: any[] = [];
 
-    if (isDbConnected) {
+    if (isDbConnected && userId) {
       try {
-        user = await User.findById(userId);
-        tasks = await Task.find({ assignedTo: user?.employeeId, status: 'in_progress' });
+        user = await User.findOne({
+          $or: [
+            { _id: mongoose.isValidObjectId(userId) ? new mongoose.Types.ObjectId(userId) : null },
+            { employeeId: userId },
+            { id: userId }
+          ].filter(Boolean)
+        });
+        if (user) {
+          tasks = await Task.find({ assignedTo: user.employeeId, status: 'in_progress' });
+        }
       } catch (dbErr) {
         console.warn('Database query failed in chat, bypassing to mock context', dbErr);
       }
@@ -425,7 +433,7 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
       Complaint Lodging Rule:
       - If the user asks about raising, lodging, or filing a complaint, tell them they must type their message starting with '/complaint <describe issue here>' (for example, '/complaint Slow loading times on dev server'). Inform them that using this command will automatically save their ticket to MongoDB Atlas and ping department managers.
       
-      You are tracking developer ${user?.name || 'Developer Engineer 01'} in the ${user?.department || 'Engineering'} department. 
+      You are tracking ${user?.role || 'Admin'} named ${user?.name || 'Admin Commander 01'} in the ${user?.department || 'DevOps'} department. 
       They currently have ${user?.xp || 3428} XP, Level ${user?.level || 4}, and a burnout score of ${user?.burnoutScore || 15}%. 
       Active tasks they are working on: ${tasks.length ? tasks.map(t => t.title).join(', ') : 'Refactor Core State Engine'}.
       
@@ -435,7 +443,7 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
       ` : ''}
 
       The developer asks: "${message}".
-      Provide a highly encouraging, sci-fi themed response (HUD console coach tone). Answer questions about how the app works, how to earn XP, how to redeem items, or how to avoid burnout using the core features and the grounded knowledge above. Refer strictly to the specific tasks, marketplace items, or employee details listed in the grounded knowledge if the user asked about them. Keep your response extremely short, concise, and direct (maximum 1-3 short sentences). Do not write long paragraphs.
+      Provide a highly encouraging, extremely friendly, warm, and human-like response. Speak like a supportive teammate or helpful assistant rather than a robotic HUD console. Answer questions about how the app works, how to earn XP, how to redeem items, or how to avoid burnout using the core features and the grounded knowledge above. Refer strictly to the specific tasks, marketplace items, or employee details listed in the grounded knowledge if the user asked about them. Keep your response extremely short, concise, and direct (maximum 1-3 short sentences). Do not write long paragraphs.
     `;
 
     // Dynamic keyword fallback if Gemini is offline

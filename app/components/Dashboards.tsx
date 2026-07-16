@@ -1061,7 +1061,70 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
                 </ul>
               </div>
             </div>
+          </div>
 
+          {/* Redemption History / Audit logs */}
+          <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40 text-left flex flex-col gap-6 relative overflow-hidden shadow-2xl mt-4">
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.002)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.002)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none opacity-30" />
+            
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-white/5 pb-6 relative z-10">
+              <div>
+                <h3 className="text-base font-bold text-white uppercase tracking-wider font-sans flex items-center gap-2">
+                  <span>📋 Employee Redemptions Audit Log</span>
+                </h3>
+                <p className="text-xs text-zinc-500 mt-1 font-mono">Live ledger tracks which employee claimed which award, cost deductions, and current shipment status.</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto w-full relative z-10">
+              <table className="w-full border-collapse font-mono text-left text-xs">
+                <thead>
+                  <tr className="border-b border-white/5 text-[9px] uppercase tracking-wider text-zinc-500 font-bold">
+                    <th className="py-4 px-3">Employee Name</th>
+                    <th className="py-4 px-3">Reward Item</th>
+                    <th className="py-4 px-3 text-center">XP Cost</th>
+                    <th className="py-4 px-3 text-center">Claim Date</th>
+                    <th className="py-4 px-3 text-right">Delivery Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.03] text-zinc-300">
+                  {[
+                    { id: 'red-1', userName: 'Developer Engineer 01', userEmail: 'employee1@workquest.ai', rewardTitle: 'Mechanical Keyboard', cost: 1200, date: '2026-07-15 10:24 AM', status: 'Delivered' },
+                    { id: 'red-2', userName: 'Developer Engineer 02', userEmail: 'employee2@workquest.ai', rewardTitle: 'Coffee Voucher', cost: 300, date: '2026-07-16 09:12 AM', status: 'Delivered' },
+                    { id: 'red-3', userName: 'Developer Engineer 03', userEmail: 'employee3@workquest.ai', rewardTitle: 'Steam Gift Card ($50)', cost: 1000, date: '2026-07-16 11:45 AM', status: 'Shipped' },
+                    { id: 'red-4', userName: 'Developer Engineer 01', userEmail: 'employee1@workquest.ai', rewardTitle: 'Extra Leave Day', cost: 2000, date: '2026-07-16 02:30 PM', status: 'Processing' },
+                  ].map((claim) => {
+                    const statusColors: Record<string, string> = {
+                      'Processing': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                      'Shipped': 'bg-[#00e5ff]/10 text-[#00e5ff] border-[#00e5ff]/20',
+                      'Delivered': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    };
+                    return (
+                      <tr key={claim.id} className="hover:bg-white/[0.02] transition duration-200">
+                        <td className="py-4 px-3">
+                          <p className="font-bold text-white font-sans">{claim.userName}</p>
+                          <p className="text-[10px] text-zinc-500 mt-0.5">{claim.userEmail}</p>
+                        </td>
+                        <td className="py-4 px-3 text-zinc-300 font-bold uppercase tracking-wider text-[10px]">
+                          {claim.rewardTitle}
+                        </td>
+                        <td className="py-4 px-3 text-center text-[#00e5ff] font-bold">
+                          -{claim.cost} XP
+                        </td>
+                        <td className="py-4 px-3 text-center text-zinc-500">
+                          {claim.date}
+                        </td>
+                        <td className="py-4 px-3 text-right">
+                          <span className={`inline-flex items-center gap-1.5 text-[8px] uppercase font-bold px-2.5 py-1 rounded border ${statusColors[claim.status] || ''}`}>
+                            {claim.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </motion.div>
       )}

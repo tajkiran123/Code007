@@ -4,7 +4,7 @@ WorkQuest AI is a futuristic SaaS platform designed to gamify employee productiv
 
 This project contains:
 1. **Responsive Web Application** (Next.js 16, React 19, Tailwind CSS v4, Framer Motion)
-2. **Backend API Blueprint Server** (Node.js, Express, Prisma ORM, Socket.io, JWT Authentication)
+2. **Backend API Blueprint Server** (Node.js, Express, Mongoose ORM, MongoDB, Socket.io, JWT Authentication)
 3. **Android & iOS Mobile Application** (React Native/Expo Blueprint with Offline Sync support)
 
 ---
@@ -20,18 +20,17 @@ This project contains:
 │   ├── mockData.ts        # Stateful mock data for frontend demo
 │   └── audio.ts           # Web Audio API Synthesizer (auditory micro-feedback)
 ├── backend/
-│   ├── routes/
-│   │   ├── auth.ts        # Express Authentication Router (Bcrypt, JWT)
-│   │   ├── tasks.ts       # Express Tasks State Machine & Socket broadcasters
-│   │   └── rewards.ts     # Express Reward store inventory management
-│   ├── prisma/
-│   │   └── schema.prisma  # PostgreSQL Prisma Database Schema definitions
-│   ├── package.json       # Backend Dependencies & Start scripts
-│   └── server.ts          # Socket.io & HTTP server listener initialization
+│   ├── db.ts              # MongoDB Mongoose database connection client
+│   ├── models/            # Mongoose Schema Definitions (User, Task, Achievement, etc.)
+│   ├── routes/            # Express REST Routers (auth, tasks, rewards, AI, analytics, etc.)
+│   ├── scripts/
+│   │   └── seed.ts        # Seed script for bootstrapping MongoDB collections
+│   ├── package.json       # Backend dependencies and run scripts
+│   └── server.ts          # Express + Socket.io API Server entrypoint
 ├── mobile/
 │   ├── screens/
 │   │   ├── DashboardScreen.tsx # Mobile profile XP dashboard & sprint tracker
-│   │   └── QRScannerScreen.tsx  # QR viewfinder scanner simulator for offline checks
+│   │   └── QRScannerScreen.tsx # QR viewfinder scanner simulator for offline checks
 │   ├── utils/
 │   │   └── SyncManager.ts      # Expo AsyncStorage caching queue for offline sync
 │   └── App.tsx                 # Mobile Navigation entry
@@ -50,7 +49,7 @@ This project contains:
 
 ### Backend Services
 * **Core:** Node.js + TypeScript + Express.
-* **Database mapping:** Prisma ORM for PostgreSQL schemas containing models for Users, Tasks, Streaks, and Redemptions.
+* **Database mapping:** Mongoose ORM for MongoDB databases containing schemas for Users, Tasks, Achievements, Marketplace, and XPHistory.
 * **Real-time Engine:** Socket.io for immediate task notifications and leaderboard state changes.
 
 ### Mobile Client
@@ -183,3 +182,24 @@ docker build -t workquest-ai:latest .
 docker run -p 3000:3000 -p 5000:5000 workquest-ai:latest
 ```
 This builds both the frontend static assets and node binaries, starting the unified production runner.
+
+---
+
+## Hackathon Project Information
+
+### Team Roles & Contributions
+* **Lead Full-Stack Engineer / Architect:** Designed the end-to-end microservices, API architecture, Express state machines, and real-time Socket.io channels.
+* **Frontend UI/UX Specialist:** Crafted the premium glassmorphic client interface, WebGL mouse-tilt dynamics, canvas-confetti interactions, and auditory micro-feedback using Next.js 16 and Framer Motion.
+* **Mobile & Offline Sync Engineer:** Created the React Native / Expo screen blueprints and SyncManager caching queue using AsyncStorage.
+
+### Future Scope
+1. **Predictive Analytics Engine:** Integration of a machine learning model to detect early signs of employee burnout based on streak decays and activity levels.
+2. **Enterprise Integrations:** One-click integration slack/teams bots that assign XP rewards automatically when a pull request is merged in GitHub or a Jira issue is completed.
+3. **Web3 Rewards Ledger:** Tokenization of points into corporate stablecoins or tokens on a secure private chain for distributed reward redemptions.
+4. **Hardware Integrations:** QR / NFC office gate check-in systems to award streaks directly when users enter the workspace in real-life.
+
+### Contact Details
+For any questions regarding the WorkQuest AI project submission, reach out via:
+* **Email:** support@workquest.ai
+* **GitHub Repository:** [WorkQuest-AI Repository](https://github.com/tajkiran123/WorkQuest-AI)
+

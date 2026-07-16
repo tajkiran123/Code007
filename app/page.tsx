@@ -25,6 +25,7 @@ import { User, Task, Reward, Badge, LeaderboardEntry, ActivityLog } from './type
 import ThreeCanvas from './components/ThreeCanvas';
 import Magnet from './components/Magnet';
 import { ManagerDashboard, CeoDashboard } from './components/Dashboards';
+import CeoAiAssistant from './components/CeoAiAssistant';
 
 // ===================================================
 // DYNAMIC 3D MOUSE-TILT & SPOTLIGHT GLOW CARD WRAPPER
@@ -1964,23 +1965,33 @@ export default function Home() {
         )}
 
         {appState === 'ceo_dashboard' && (
-          <CeoDashboard
-            currentUser={currentUser}
-            setAppState={setAppState}
-            ceoTab={ceoTab}
-            setCeoTab={setCeoTab}
-            usersList={usersList}
-            employeeSearch={employeeSearch}
-            setEmployeeSearch={setEmployeeSearch}
-            totalNodes={totalNodes}
-            totalPayroll={totalPayroll}
-            avgBurnout={avgBurnout}
-            handleSoundClick={handleSoundClick}
-            loadBackendData={loadBackendData}
-            triggerNotification={triggerNotification}
-            complaintsList={complaintsList}
-            setComplaintsList={setComplaintsList}
-          />
+          <>
+            <CeoDashboard
+              currentUser={currentUser}
+              setAppState={setAppState}
+              ceoTab={ceoTab}
+              setCeoTab={setCeoTab}
+              usersList={usersList}
+              employeeSearch={employeeSearch}
+              setEmployeeSearch={setEmployeeSearch}
+              totalNodes={totalNodes}
+              totalPayroll={totalPayroll}
+              avgBurnout={avgBurnout}
+              handleSoundClick={handleSoundClick}
+              loadBackendData={loadBackendData}
+              triggerNotification={triggerNotification}
+              complaintsList={complaintsList}
+              setComplaintsList={setComplaintsList}
+            />
+            <CeoAiAssistant
+              currentUser={currentUser}
+              usersList={usersList}
+              loadBackendData={loadBackendData}
+              triggerNotification={triggerNotification}
+              setCeoTab={setCeoTab}
+              setAppState={setAppState}
+            />
+          </>
         )}
 
       </main>
@@ -1988,87 +1999,89 @@ export default function Home() {
       {/* ===================================================
           5. FLOATING AI COACH
           =================================================== */}
-      <div className="fixed bottom-8 right-8 z-40">
-        <AnimatePresence>
-          {chatOpen && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.96, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 15 }}
-              className="w-80 h-96 glass-panel rounded-2xl border-[#00e5ff]/20 shadow-2xl flex flex-col mb-4 overflow-hidden text-left font-mono bg-zinc-950/85 backdrop-blur-xl"
-            >
-              {/* Scanline hologram effect */}
-              <div className="absolute inset-0 bg-scanlines opacity-[0.05] pointer-events-none z-10" />
+      {appState !== 'ceo_dashboard' && (
+        <div className="fixed bottom-8 right-8 z-40">
+          <AnimatePresence>
+            {chatOpen && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.96, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 15 }}
+                className="w-80 h-96 glass-panel rounded-2xl border-[#00e5ff]/20 shadow-2xl flex flex-col mb-4 overflow-hidden text-left font-mono bg-zinc-950/85 backdrop-blur-xl"
+              >
+                {/* Scanline hologram effect */}
+                <div className="absolute inset-0 bg-scanlines opacity-[0.05] pointer-events-none z-10" />
 
-              <div className="p-4 bg-gradient-to-r from-zinc-900 to-zinc-950 border-b border-[#00e5ff]/20 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <span className="soundwave-bar" style={{ animationDelay: '0.1s' }} />
-                    <span className="soundwave-bar" style={{ animationDelay: '0.3s' }} />
-                    <span className="soundwave-bar" style={{ animationDelay: '0.2s' }} />
-                  </div>
-                  <div>
-                    <h4 className="text-[11px] font-bold text-white uppercase tracking-wider">Coach Node AI</h4>
-                    <p className="text-[8px] text-zinc-500 uppercase tracking-widest">Hologram Uplink • Online</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => { setChatOpen(false); handleSoundClick(); }}
-                  className="text-zinc-500 hover:text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/5 transition"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Chat Thread */}
-              <div className="flex-grow p-4 space-y-3 overflow-y-auto bg-zinc-950/60">
-                {chatMessages.map((msg, index) => (
-                  <div key={index} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
-                    <div 
-                      className={`max-w-[85%] p-3 rounded-xl text-[11px] leading-relaxed shadow ${
-                        msg.sender === 'user' 
-                          ? 'bg-[#00e5ff] text-black rounded-tr-none font-semibold' 
-                          : 'bg-zinc-900 border border-white/5 text-zinc-300 rounded-tl-none'
-                      }`}
-                    >
-                      {msg.text}
+                <div className="p-4 bg-gradient-to-r from-zinc-900 to-zinc-950 border-b border-[#00e5ff]/20 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <span className="soundwave-bar" style={{ animationDelay: '0.1s' }} />
+                      <span className="soundwave-bar" style={{ animationDelay: '0.3s' }} />
+                      <span className="soundwave-bar" style={{ animationDelay: '0.2s' }} />
                     </div>
-                    <span className="text-[7px] text-zinc-600 mt-1">{msg.timestamp}</span>
+                    <div>
+                      <h4 className="text-[11px] font-bold text-white uppercase tracking-wider">Coach Node AI</h4>
+                      <p className="text-[8px] text-zinc-500 uppercase tracking-widest">Hologram Uplink • Online</p>
+                    </div>
                   </div>
-                ))}
-                {isTyping && (
-                  <div className="text-[9px] text-[#00e5ff] font-mono italic animate-pulse">Running metrics analytics...</div>
-                )}
-              </div>
+                  <button 
+                    onClick={() => { setChatOpen(false); handleSoundClick(); }}
+                    className="text-zinc-500 hover:text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/5 transition"
+                  >
+                    ✕
+                  </button>
+                </div>
 
-              {/* Chat Input */}
-              <div className="p-2 border-t border-white/5 flex gap-2 items-center bg-zinc-950">
-                <input 
-                  type="text" 
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Ask coach..."
-                  className="flex-grow px-3 py-2 rounded-lg bg-zinc-900 border border-white/5 text-white placeholder-zinc-700 text-xs focus:outline-none"
-                />
-                <button 
-                  onClick={handleSendMessage}
-                  className="p-2 rounded-lg bg-[#00e5ff] text-black hover:bg-white transition"
-                >
-                  <Send size={11} />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                {/* Chat Thread */}
+                <div className="flex-grow p-4 space-y-3 overflow-y-auto bg-zinc-950/60">
+                  {chatMessages.map((msg, index) => (
+                    <div key={index} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                      <div 
+                        className={`max-w-[85%] p-3 rounded-xl text-[11px] leading-relaxed shadow ${
+                          msg.sender === 'user' 
+                            ? 'bg-[#00e5ff] text-black rounded-tr-none font-semibold' 
+                            : 'bg-zinc-900 border border-white/5 text-zinc-300 rounded-tl-none'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                      <span className="text-[7px] text-zinc-600 mt-1">{msg.timestamp}</span>
+                    </div>
+                  ))}
+                  {isTyping && (
+                    <div className="text-[9px] text-[#00e5ff] font-mono italic animate-pulse">Running metrics analytics...</div>
+                  )}
+                </div>
 
-        <button 
-          onClick={() => { setChatOpen(!chatOpen); handleSoundClick(); }}
-          className="w-12 h-12 rounded-full bg-zinc-950 border border-[#00e5ff]/35 flex items-center justify-center shadow-xl hover:border-[#00e5ff] hover:scale-105 transition duration-300 cursor-pointer animate-float-ambient"
-        >
-          <Sparkles className="text-[#00e5ff]" size={18} />
-        </button>
-      </div>
+                {/* Chat Input */}
+                <div className="p-2 border-t border-white/5 flex gap-2 items-center bg-zinc-950">
+                  <input 
+                    type="text" 
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Ask coach..."
+                    className="flex-grow px-3 py-2 rounded-lg bg-zinc-900 border border-white/5 text-white placeholder-zinc-700 text-xs focus:outline-none"
+                  />
+                  <button 
+                    onClick={handleSendMessage}
+                    className="p-2 rounded-lg bg-[#00e5ff] text-black hover:bg-white transition"
+                  >
+                    <Send size={11} />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button 
+            onClick={() => { setChatOpen(!chatOpen); handleSoundClick(); }}
+            className="w-12 h-12 rounded-full bg-zinc-950 border border-[#00e5ff]/35 flex items-center justify-center shadow-xl hover:border-[#00e5ff] hover:scale-105 transition duration-300 cursor-pointer animate-float-ambient"
+          >
+            <Sparkles className="text-[#00e5ff]" size={18} />
+          </button>
+        </div>
+      )}
 
       {/* ===================================================
           6. MANAGER VERIFICATION MODAL

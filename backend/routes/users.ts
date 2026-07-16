@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import User from '../models/User';
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 
@@ -268,6 +269,181 @@ router.post('/:id/streak-freeze', async (req: Request, res: Response): Promise<a
     }
   } catch (err) {
     return res.status(500).json({ error: 'Failed to process streak freeze request.' });
+  }
+});
+
+// @route   POST /api/users
+// @desc    Create a new user (employee/manager)
+router.post('/', async (req: Request, res: Response): Promise<any> => {
+  const { name, email, role, department, salary } = req.body;
+  try {
+    const isDbConnected = mongoose.connection.readyState === 1;
+    const prefix = role === 'Manager' ? 'MGR' : role === 'Admin' ? 'ADM' : 'EMP';
+    const randomId = `${prefix}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const newUserObj = {
+      name,
+      email: email || `${name.toLowerCase().replace(/\s+/g, '')}@workquest.ai`,
+      role: role || 'Employee',
+      department: department || 'Engineering',
+      employeeId: randomId,
+      salary: salary || '$115,000',
+      passwordHash: bcrypt.hashSync('Password123!', 10),
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      xp: 0,
+      level: 1,
+      streak: 5,
+      skipsLeft: 1,
+      streakFreezeActive: false,
+      status: 'active',
+      attendance: 95,
+      burnoutScore: 15,
+      completedTasksCount: 0,
+      pendingTasksCount: 0,
+      commitsCount: 0,
+      location: 'San Francisco, CA',
+      badges: [] as string[],
+      joinedAt: new Date().toISOString().split('T')[0],
+      themeColor: 'cyan'
+    };
+
+    if (!isDbConnected) {
+      console.log('⚠️ MongoDB offline. Simulating user creation.');
+      const userWithId = { ...newUserObj, id: `user-${Date.now()}`, _id: `user-${Date.now()}` };
+      MOCK_USERS.push(userWithId);
+      const { io } = require('../server');
+      if (io) {
+        io.emit('user_created', userWithId);
+      }
+      return res.status(201).json(userWithId);
+    }
+
+    // Check if user already exists
+    const existing = await User.findOne({ email: newUserObj.email });
+    if (existing) {
+      return res.status(400).json({ error: 'User with this email already exists.' });
+    }
+
+    const user = new User(newUserObj);
+    await user.save();
+
+    const { io } = require('../server');
+    if (io) {
+      io.emit('user_created', user);
+    }
+
+    return res.status(201).json(user);
+  } catch (err) {
+    console.error('Create user error:', err);
+    return res.status(500).json({ error: 'Failed to create user.' });
+  }
+});
+
+// @route   DELETE /api/users/:id
+// @desc    Delete a user
+router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
+  const { id } = req.params;
+  try {
+    const isDbConnected = mongoose.connection.readyState === 1;
+
+    if (!isDbConnected) {
+      console.log('⚠️ MongoDB offline. Simulating user deletion.');
+      const index = MOCK_USERS.findIndex(u => u.id === id || u.employeeId === id || u._id === id);
+      if (index === -1) {
+        return res.status(404).json({ error: 'User record not found.' });
+      }
+      const deletedUser = MOCK_USERS.splice(index, 1)[0];
+      const { io } = require('../server');
+      if (io) {
+        io.emit('user_deleted', { id: deletedUser.id || deletedUser.employeeId });
+      }
+      return res.json({ message: 'User deleted successfully', user: deletedUser });
+    }
+
+    // Find and delete user
+    const user = await User.findOneAndDelete({
+      $or: [
+        { _id: mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : null },
+        { employeeId: id }
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User record not found.' });
+    }
+
+    const { io } = require('../server');
+    if (io) {
+      io.emit('user_deleted', { id: user._id || user.employeeId });
+    }
+
+    return res.json({ message: 'User deleted successfully', user });
+  } catch (err) {
+    console.error('Delete user error:', err);
+    return res.status(500).json({ error: 'Failed to delete user.' });
+  }
+});
+
+// @route   POST /api/users/add-xp
+// @desc    Give XP to a team/department or specific employee
+router.post('/add-xp', async (req: Request, res: Response): Promise<any> => {
+  const { department, employeeId, xpAmount } = req.body;
+  try {
+    const isDbConnected = mongoose.connection.readyState === 1;
+    const amount = Number(xpAmount || 0);
+
+    if (!isDbConnected) {
+      console.log('⚠️ MongoDB offline. Simulating XP grant.');
+      if (employeeId) {
+        const user = MOCK_USERS.find(u => u.id === employeeId || u.employeeId === employeeId);
+        if (user) {
+          user.xp += amount;
+          // Recalculate level
+          user.level = Math.floor(user.xp / 1000) + 1;
+        }
+      } else if (department) {
+        MOCK_USERS.forEach(u => {
+          if (u.department.toLowerCase() === department.toLowerCase()) {
+            u.xp += amount;
+            u.level = Math.floor(u.xp / 1000) + 1;
+          }
+        });
+      }
+      const { io } = require('../server');
+      if (io) {
+        io.emit('xp_granted', { department, employeeId, xpAmount: amount });
+      }
+      return res.json({ message: `Granted ${amount} XP successfully.` });
+    }
+
+    if (employeeId) {
+      const user = await User.findOneAndUpdate(
+        { employeeId },
+        { $inc: { xp: amount } },
+        { new: true }
+      );
+      if (user) {
+        user.level = Math.floor(user.xp / 1000) + 1;
+        await user.save();
+      }
+    } else if (department) {
+      const users = await User.find({ department: { $regex: new RegExp(`^${department}$`, 'i') } });
+      for (const u of users) {
+        u.xp += amount;
+        u.level = Math.floor(u.xp / 1000) + 1;
+        await u.save();
+      }
+    }
+
+    const { io } = require('../server');
+    if (io) {
+      io.emit('xp_granted', { department, employeeId, xpAmount: amount });
+    }
+
+    return res.json({ message: `Granted ${amount} XP successfully.` });
+  } catch (err) {
+    console.error('Grant XP error:', err);
+    return res.status(500).json({ error: 'Failed to grant XP.' });
   }
 });
 

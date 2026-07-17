@@ -1,8 +1,8 @@
-# How to Set Up Real Google SSO Login (Resolve Error 401: invalid_client)
+# How to Set Up Google SSO Login (Resolve Error 401: invalid_client)
 
-Google's authentication servers require every application to have a registered **Client ID** to authorize users. The error `Error 401: invalid_client` indicates that the placeholder Client ID in `.env.local` is not registered.
+Google's authentication servers require every application to have a registered **Client ID** to authorize users. The error `Error 401: invalid_client` indicates that the Client ID configured in the environment variables is either unrecognized, deleted, or incorrect.
 
-Follow these 5 simple steps to get your own Google Client ID for free:
+Follow these steps to configure real Google Sign-In for both local development and Vercel production:
 
 ---
 
@@ -12,7 +12,7 @@ Follow these 5 simple steps to get your own Google Client ID for free:
 3. If you don't have a project yet, click **Select a project** -> **New Project**, name it `WorkQuest-AI`, and click **Create**.
 
 ### Step 2: Configure Consent Screen (If asked)
-If this is a new project, Google might ask you to configure the OAuth consent screen first:
+If this is a new project, Google will ask you to configure the OAuth consent screen first:
 1. Click **Configure Consent Screen**.
 2. Select **External** and click **Create**.
 3. Fill in the **App name** (e.g., `WorkQuest AI`) and **User support email** (your email).
@@ -26,22 +26,52 @@ If this is a new project, Google might ask you to configure the OAuth consent sc
 4. In the **Name** field, type `WorkQuest Web Client`.
 5. Under **Authorized JavaScript origins**, click **+ Add URI** and enter:
    - `http://localhost:3000`
+   - `https://workquest-gamma.vercel.app`
 6. Under **Authorized redirect URIs**, click **+ Add URI** and enter:
    - `http://localhost:3000`
+   - `http://localhost:3000/api/auth/callback/google`
+   - `https://workquest-gamma.vercel.app/api/auth/callback/google`
 7. Click **Create** at the bottom.
 
-### Step 4: Add the Client ID to your project
-1. Copy the **Client ID** shown in the popup (it looks like `xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com`).
-2. Open the [`.env.local`](file:///c:/Users/J%20Taj%20Kiran/Downloads/WorkQuest-AI/.env.local) file in the root folder of this project.
-3. Replace the placeholder Client ID with your copied key:
-   ```env
-   NEXT_PUBLIC_GOOGLE_CLIENT_ID=YOUR_COPIED_CLIENT_ID.apps.googleusercontent.com
-   ```
+---
 
-### Step 5: Restart the Server
-1. Stop your terminal running `npm run dev` (press `Ctrl + C`).
-2. Run it again to load the new environment variables:
-   ```bash
-   npm run dev
-   ```
-3. Refresh your browser and click **Google Account** again! It will load the official Google account picker window with your real device accounts.
+### Step 4: Configure Environment Variables
+
+Copy the **Client ID** and **Client Secret** shown in the popup.
+
+#### 1. Local Development (`.env.local` & `backend/.env`)
+
+Update the client ID in `.env.local` in the project root:
+```env
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=YOUR_CLIENT_ID.apps.googleusercontent.com
+NEXT_PUBLIC_GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/callback/google
+```
+
+Update the client ID in `backend/.env`:
+```env
+GOOGLE_CLIENT_ID=YOUR_CLIENT_ID.apps.googleusercontent.com
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=YOUR_CLIENT_ID.apps.googleusercontent.com
+```
+
+#### 2. Vercel Production Environment Variables
+
+Add these environment variables to your project dashboard on Vercel:
+
+| Environment Variable | Value |
+|----------------------|-------|
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | `YOUR_CLIENT_ID.apps.googleusercontent.com` |
+| `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` | `https://workquest-gamma.vercel.app/api/auth/callback/google` |
+| `GOOGLE_CLIENT_ID` | `YOUR_CLIENT_ID.apps.googleusercontent.com` |
+
+If you decide to migrate to NextAuth later, you will also need:
+- `GOOGLE_CLIENT_SECRET`: `YOUR_CLIENT_SECRET`
+- `NEXTAUTH_URL`: `https://workquest-gamma.vercel.app`
+- `NEXTAUTH_SECRET`: `YOUR_JWT_SECRET`
+
+---
+
+### Step 5: Restart and Test
+1. Restart your local server (`npm run dev`) or redeploy to Vercel.
+2. Click **Google Account** on the login page.
+3. You will be redirected to Google's official account picker.
+4. After signing in, you will be routed back to the dashboard.

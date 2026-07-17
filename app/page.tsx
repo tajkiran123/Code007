@@ -856,8 +856,8 @@ export default function Home() {
       clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
     }
     
-    // If Client ID is empty or standard invalid placeholder, show the connect prompt
-    if (!clientId || clientId.includes('YOUR_GOOGLE') || clientId.includes('547514809228')) {
+    // Only block if the Client ID is empty, contains placeholder, or matches the exact deleted ID
+    if (!clientId || clientId.includes('YOUR_GOOGLE') || clientId === '547514809228-kgg4h76v9q8mop43o8lqpe4o6oasv652.apps.googleusercontent.com') {
       setTempClientId('');
       setShowClientIdPrompt(true);
       return;
@@ -865,7 +865,7 @@ export default function Home() {
     
     // Direct redirect to Google's actual OAuth 2.0 endpoint page
     if (typeof window !== 'undefined') {
-      const redirectUri = window.location.origin;
+      const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || `${window.location.origin}/api/auth/callback/google`;
       const nonce = Math.random().toString(36).substring(2);
       const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token%20token&scope=openid%20email%20profile&prompt=select_account&nonce=${nonce}`;
       
@@ -3260,7 +3260,7 @@ export default function Home() {
                     handleSoundClick();
                     localStorage.setItem('google_client_id', tempClientId.trim());
                     setShowClientIdPrompt(false);
-                    const redirectUri = window.location.origin;
+                    const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || `${window.location.origin}/api/auth/callback/google`;
                     const nonce = Math.random().toString(36).substring(2);
                     const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${tempClientId.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token%20token&scope=openid%20email%20profile&prompt=select_account&nonce=${nonce}`;
                     window.location.href = oauthUrl;

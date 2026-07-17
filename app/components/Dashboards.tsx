@@ -6,7 +6,8 @@ import confetti from 'canvas-confetti';
 import { 
   Users, Trophy, AlertTriangle, Search, Check, Upload, Plus, Gift, Sparkles,
   AlertCircle, CheckCircle2, MessageSquare, Calendar, User as UserIcon,
-  TrendingUp, TrendingDown, DollarSign, Percent, Activity, FileText, Lock
+  TrendingUp, TrendingDown, DollarSign, Percent, Activity, FileText, Lock,
+  RefreshCw
 } from 'lucide-react';
 import { User, Task, FinancialRecord, ExpenseBreakdown, FinancialSummary } from '../types';
 
@@ -411,6 +412,20 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
   const [timeframe, setTimeframe] = React.useState<'6m' | '12m'>('6m');
   const [hoveredDataPoint, setHoveredDataPoint] = React.useState<any | null>(null);
   const [hoveredChart, setHoveredChart] = React.useState<'profit' | 'expenses' | 'growth' | null>(null);
+  const [isRefreshingIssues, setIsRefreshingIssues] = React.useState(false);
+
+  const handleRefreshIssues = async () => {
+    handleSoundClick();
+    setIsRefreshingIssues(true);
+    try {
+      await loadBackendData();
+      triggerNotification('Telemetry nodes synchronized', 'success');
+    } catch (err) {
+      triggerNotification('Telemetry nodes sync failed', 'error');
+    } finally {
+      setIsRefreshingIssues(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1190,9 +1205,22 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
                 Direct system logs and complaints filed by workspace agents through chatbot coach nodes. Audit and resolve blocks to maintain team velocity.
               </p>
             </div>
-            <div className="flex flex-col text-right font-mono text-[10px]">
-              <span className="text-zinc-500 uppercase">TELEMETRY LINK STATUS</span>
-              <span className="text-[#00e5ff] font-bold">ONLINE // ENCRYPTED</span>
+            <div className="flex items-center gap-4 font-mono text-[10px]">
+              <div className="flex flex-col text-right hidden sm:flex">
+                <span className="text-zinc-500 uppercase">TELEMETRY LINK STATUS</span>
+                <span className="text-[#00e5ff] font-bold">ONLINE // ENCRYPTED</span>
+              </div>
+              <button
+                onClick={handleRefreshIssues}
+                disabled={isRefreshingIssues}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-950 hover:bg-zinc-900 border border-white/5 text-zinc-300 hover:text-white hover:border-[#00e5ff]/50 transition duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+              >
+                <RefreshCw 
+                  size={12} 
+                  className={`text-[#00e5ff] ${isRefreshingIssues ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} 
+                />
+                <span className="text-[9px] uppercase tracking-widest font-black">Sync Feed</span>
+              </button>
             </div>
           </div>
 

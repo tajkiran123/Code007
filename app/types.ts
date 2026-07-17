@@ -103,3 +103,35 @@ export interface EmployeeAttendance {
   attendanceRate: number;
   dailyStatus: ('present' | 'leave' | 'absent' | 'weekend')[];
 }
+
+export interface FinancialRecord {
+  month: string;
+  revenue: number;
+  expenses: number;
+  profit: number;
+  growth: number;
+  clients: number;
+  breakdown: {
+    salaries: number;
+    infrastructure: number;
+    marketing: number;
+    software: number;
+    misc: number;
+  };
+}
+
+export interface ExpenseBreakdown {
+  salaries: number;
+  infrastructure: number;
+  marketing: number;
+  software: number;
+  misc: number;
+}
+
+export interface FinancialSummary {
+  totalRevenueYTD: number;
+  totalExpensesYTD: number;
+  totalProfitYTD: number;
+  averageGrowth: number;
+  currentClients: number;
+}

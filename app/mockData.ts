@@ -153,6 +153,45 @@ export const mockTasks: Task[] = [
     assignedToName: 'Jordan Sparks',
     assignedBy: 'mgr-1',
     commentsCount: 0,
+  },
+  {
+    id: 'task-6',
+    title: 'Build Real-Time Notification Engine',
+    description: 'Implement WebSocket-based push notification system with priority queuing and offline buffering.',
+    difficulty: 'hard',
+    xp: 60,
+    dueDate: '2026-07-22',
+    status: 'todo',
+    assignedTo: 'emp-1',
+    assignedToName: 'Developer Engineer 01',
+    assignedBy: 'mgr-1',
+    commentsCount: 0,
+  },
+  {
+    id: 'task-7',
+    title: 'Dashboard Analytics Widget',
+    description: 'Create interactive charts using D3.js to visualize sprint velocity and team performance metrics.',
+    difficulty: 'medium',
+    xp: 30,
+    dueDate: '2026-07-25',
+    status: 'in_progress',
+    assignedTo: 'emp-1',
+    assignedToName: 'Developer Engineer 01',
+    assignedBy: 'mgr-1',
+    commentsCount: 2,
+  },
+  {
+    id: 'task-8',
+    title: 'Migrate CI/CD Pipeline to GitHub Actions',
+    description: 'Replace legacy Jenkins pipeline with GitHub Actions workflows for automated testing, linting, and deployment.',
+    difficulty: 'extreme',
+    xp: 120,
+    dueDate: '2026-07-20',
+    status: 'todo',
+    assignedTo: 'emp-1',
+    assignedToName: 'Developer Engineer 01',
+    assignedBy: 'mgr-1',
+    commentsCount: 1,
   }
 ];
 
@@ -242,4 +281,19 @@ export const mockProductivityStats = [
   { day: 'Fri', xp: 320, tasks: 6 },
   { day: 'Sat', xp: 50, tasks: 1 },
   { day: 'Sun', xp: 90, tasks: 2 },
+];
+
+export const defaultFinancials = [
+  { month: 'May 25', revenue: 112000, expenses: 98000, profit: 14000, growth: 2.1, clients: 10, breakdown: { salaries: 72000, infrastructure: 12000, marketing: 8000, software: 4000, misc: 2000 } },
+  { month: 'Jun 25', revenue: 118000, expenses: 99500, profit: 18500, growth: 5.3, clients: 11, breakdown: { salaries: 72000, infrastructure: 12500, marketing: 8500, software: 4200, misc: 2300 } },
+  { month: 'Jul 25', revenue: 125000, expenses: 102000, profit: 23000, growth: 5.9, clients: 13, breakdown: { salaries: 74000, infrastructure: 13000, marketing: 9000, software: 4500, misc: 2500 } },
+  { month: 'Aug 25', revenue: 132000, expenses: 104000, profit: 28000, growth: 5.6, clients: 14, breakdown: { salaries: 74000, infrastructure: 13500, marketing: 9500, software: 4800, misc: 2700 } },
+  { month: 'Sep 25', revenue: 138000, expenses: 108500, profit: 29500, growth: 4.5, clients: 15, breakdown: { salaries: 76000, infrastructure: 14000, marketing: 10000, software: 5500, misc: 3000 } },
+  { month: 'Oct 25', revenue: 145000, expenses: 111000, profit: 34000, growth: 5.1, clients: 16, breakdown: { salaries: 76000, infrastructure: 15000, marketing: 11000, software: 6000, misc: 3000 } },
+  { month: 'Nov 25', revenue: 152000, expenses: 114500, profit: 37500, growth: 4.8, clients: 18, breakdown: { salaries: 78000, infrastructure: 16000, marketing: 11500, software: 6200, misc: 2800 } },
+  { month: 'Dec 25', revenue: 160000, expenses: 118000, profit: 42000, growth: 5.3, clients: 19, breakdown: { salaries: 78000, infrastructure: 17000, marketing: 12000, software: 7000, misc: 4000 } },
+  { month: 'Jan 26', revenue: 165000, expenses: 122000, profit: 43000, growth: 3.1, clients: 20, breakdown: { salaries: 80000, infrastructure: 18000, marketing: 13000, software: 7500, misc: 3500 } },
+  { month: 'Feb 26', revenue: 172000, expenses: 124500, profit: 47500, growth: 4.2, clients: 21, breakdown: { salaries: 80000, infrastructure: 19000, marketing: 13500, software: 8000, misc: 4000 } },
+  { month: 'Mar 26', revenue: 180000, expenses: 128000, profit: 52000, growth: 4.7, clients: 22, breakdown: { salaries: 82000, infrastructure: 20000, marketing: 14000, software: 8500, misc: 3500 } },
+  { month: 'Apr 26', revenue: 191000, expenses: 132000, profit: 59000, growth: 6.1, clients: 23, breakdown: { salaries: 82000, infrastructure: 21000, marketing: 15000, software: 9000, misc: 5000 } }
 ];

@@ -15,7 +15,7 @@ interface CeoAiAssistantProps {
   usersList: any[];
   loadBackendData: () => void;
   triggerNotification: (text: string, type: 'success' | 'xp' | 'badge' | 'reward') => void;
-  setCeoTab: (tab: 'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues') => void;
+  setCeoTab: (tab: 'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues' | 'analytics') => void;
   setAppState: (state: 'landing' | 'login' | 'employee_dashboard' | 'manager_dashboard' | 'ceo_dashboard') => void;
 }
 
@@ -462,6 +462,12 @@ export default function CeoAiAssistant({
       setCeoTab('issues');
       sfx.playClick();
       streamReply("I've opened the Issues & Complaints page for you!");
+      return;
+    }
+    if (cleanCommand.includes('open graphs') || cleanCommand.includes('show graphs') || cleanCommand.includes('view graphs') || cleanCommand.includes('open analytics') || cleanCommand.includes('show analytics') || cleanCommand.includes('view analytics') || cleanCommand.includes('company graphs') || cleanCommand.includes('profit') || cleanCommand.includes('expenses') || cleanCommand.includes('growth')) {
+      setCeoTab('analytics');
+      sfx.playClick();
+      streamReply("I've opened the Company Graphs & Financial Analytics page for you!");
       return;
     }
     if (cleanCommand.includes('switch to employee') || cleanCommand.includes('employee view') || cleanCommand.includes('employee dashboard')) {

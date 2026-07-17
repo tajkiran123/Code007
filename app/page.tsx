@@ -3086,7 +3086,7 @@ export default function Home() {
                 <div className="flex flex-col gap-2">
                   <h2 className="text-2xl font-normal text-white tracking-tight">Choose an account</h2>
                   <p className="text-[13px] text-zinc-400 font-normal">
-                    to continue to <span className="text-[#8ab4f8] hover:underline cursor-pointer">twin-biz-ai.vercel.app</span>
+                    to continue to <span className="text-[#8ab4f8] hover:underline cursor-pointer">workquest-gamma.vercel.app</span>
                   </p>
                   
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[11px] text-amber-400 font-sans leading-relaxed mt-2">
@@ -3204,7 +3204,7 @@ export default function Home() {
               {/* Footer info matching Google Account chooser details */}
               <div className="p-6 text-[11px] text-zinc-505 text-zinc-500 font-normal leading-relaxed">
                 <p>
-                  To continue, Google will share your name, email address, language preference, and profile picture with twin-biz-ai.vercel.app.
+                  To continue, Google will share your name, email address, language preference, and profile picture with workquest-gamma.vercel.app.
                 </p>
               </div>
             </motion.div>

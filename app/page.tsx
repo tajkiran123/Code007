@@ -851,6 +851,11 @@ export default function Home() {
     let clientId = '';
     if (typeof window !== 'undefined') {
       clientId = localStorage.getItem('google_client_id') || '';
+      // Self-heal: If the saved client ID is invalid (e.g. doesn't end with .apps.googleusercontent.com), clear it
+      if (clientId && !clientId.endsWith('.apps.googleusercontent.com')) {
+        localStorage.removeItem('google_client_id');
+        clientId = '';
+      }
     }
     if (!clientId) {
       clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';

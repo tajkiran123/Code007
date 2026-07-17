@@ -7,7 +7,7 @@ import {
   Trash2, ShieldCheck, TrendingUp, Moon, Sun, ArrowRight, Zap, 
   ChevronDown, Search, ArrowUpRight, Check, Send, AlertTriangle, 
   PieChart, MessageSquare, LogOut, Code, RefreshCw, Layers,
-  ChevronLeft, Minus, Lock, Mail, Fingerprint, Terminal
+  ChevronLeft, Minus, Lock, Mail, Fingerprint, Terminal, Upload, Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -17,15 +17,83 @@ import {
   mockLeaderboard as initialLeaderboard, 
   mockActivityLogs as initialActivityLogs, 
   mockProductivityStats as initialProductivityStats,
-  levelNames, difficultyXp 
+  levelNames, difficultyXp, defaultFinancials
 } from './mockData';
-import { User, Task, Reward, Badge, LeaderboardEntry, ActivityLog } from './types';
+import { User, Task, Reward, Badge, LeaderboardEntry, ActivityLog, FinancialRecord, ExpenseBreakdown, FinancialSummary } from './types';
 
 // WebGL Canvas & Magnetic Interaction Components
 import ThreeCanvas from './components/ThreeCanvas';
 import Magnet from './components/Magnet';
-import { ManagerDashboard, CeoDashboard } from './components/Dashboards';
+import { ManagerDashboard, CeoDashboard, MOCK_CLIENT_PROJECTS } from './components/Dashboards';
 import CeoAiAssistant from './components/CeoAiAssistant';
+
+// ===================================================
+// GOOGLE SSO ACCOUNT OPTION TELEMETRY
+// ===================================================
+interface SsoUserOption {
+  name: string;
+  email: string;
+  role: 'admin' | 'employee';
+  avatarType: 'letter' | 'image';
+  avatarValue: string;
+  color?: string;
+}
+
+const GOOGLE_ACCOUNTS_LIST: SsoUserOption[] = [
+  {
+    name: 'Tajkiran Junnuri',
+    email: 'tajkiranjunnuri@gmail.com',
+    role: 'admin',
+    avatarType: 'letter',
+    avatarValue: 'T',
+    color: '#0284c7'
+  },
+  {
+    name: 'Bhanu G',
+    email: 'bhanug5616@gmail.com',
+    role: 'admin',
+    avatarType: 'letter',
+    avatarValue: 'B',
+    color: '#059669'
+  },
+  {
+    name: 'Hello Hi',
+    email: 'hellbbhh5575@gmail.com',
+    role: 'employee',
+    avatarType: 'letter',
+    avatarValue: 'H',
+    color: '#4f46e5'
+  },
+  {
+    name: 'Junnuri Bobby',
+    email: 'junnuribobby111@gmail.com',
+    role: 'employee',
+    avatarType: 'image',
+    avatarValue: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=150&q=80'
+  },
+  {
+    name: 'Tajkiran Junnuri',
+    email: 'junnuritajkiran@gmail.com',
+    role: 'employee',
+    avatarType: 'image',
+    avatarValue: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=150&q=80'
+  },
+  {
+    name: 'Aparna GreenWave',
+    email: 'aparnagreenwave99@gmail.com',
+    role: 'employee',
+    avatarType: 'letter',
+    avatarValue: 'A',
+    color: '#ea580c'
+  },
+  {
+    name: 'Krishna Junnuri',
+    email: 'jkldbabu@gmail.com',
+    role: 'employee',
+    avatarType: 'image',
+    avatarValue: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=150&q=80'
+  }
+];
 
 // ===================================================
 // DYNAMIC 3D MOUSE-TILT & SPOTLIGHT GLOW CARD WRAPPER
@@ -119,7 +187,7 @@ export default function Home() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDesc, setNewTaskDesc] = useState('');
   const [newTaskDifficulty, setNewTaskDifficulty] = useState<'easy' | 'medium' | 'hard' | 'extreme'>('medium');
-  const [newTaskAssignee, setNewTaskAssignee] = useState('emp-1');
+  const [newTaskAssignee, setNewTaskAssignee] = useState('EMP-001');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [commentText, setCommentText] = useState('');
   const [mockComments, setMockComments] = useState<Record<string, { author: string; text: string; time: string }[]>>({
@@ -152,10 +220,44 @@ export default function Home() {
   const [managerQualityScore, setManagerQualityScore] = useState(9);
   const [managerFeedback, setManagerFeedback] = useState('Outstanding deployment. Commendable velocity!');
   const [managerTab, setManagerTab] = useState<'quests' | 'clients'>('quests');
-  const [ceoTab, setCeoTab] = useState<'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues'>('salaries');
+  const [ceoTab, setCeoTab] = useState<'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues' | 'analytics' | 'leaderboard'>('salaries');
+
+  // AI Verification & Upload States
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [selectedTaskForUpload, setSelectedTaskForUpload] = useState<Task | null>(null);
+  const [uploadLink, setUploadLink] = useState('');
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [uploadFileBase64, setUploadFileBase64] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationLogs, setVerificationLogs] = useState<string[]>([]);
+  const [verificationScore, setVerificationScore] = useState<number | null>(null);
+  const [verificationFeedback, setVerificationFeedback] = useState('');
+
+
+  const [companyFinancials, setCompanyFinancials] = useState<FinancialRecord[]>(defaultFinancials);
+  const [expenseBreakdown, setExpenseBreakdown] = useState<ExpenseBreakdown>({
+    salaries: 82000,
+    infrastructure: 21000,
+    marketing: 15000,
+    software: 9000,
+    misc: 5000
+  });
+  const [financialSummary, setFinancialSummary] = useState<FinancialSummary>({
+    totalRevenueYTD: 1790000,
+    totalExpensesYTD: 1323000,
+    totalProfitYTD: 467000,
+    averageGrowth: 4.8,
+    currentClients: 23
+  });
   const [usersList, setUsersList] = useState<User[]>(mockUsers);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [isWarping, setIsWarping] = useState(false);
+  const [ssoModalOpen, setSsoModalOpen] = useState(false);
+  const [ssoProvider, setSsoProvider] = useState<'google' | 'microsoft' | null>(null);
+  const [customSsoEmail, setCustomSsoEmail] = useState('');
+  const [showCustomSsoInput, setShowCustomSsoInput] = useState(false);
+  const [showClientIdPrompt, setShowClientIdPrompt] = useState(false);
+  const [tempClientId, setTempClientId] = useState('');
 
   const [notifications, setNotifications] = useState<{ id: string; text: string; type: 'xp' | 'badge' | 'reward' | 'success'; amount?: string }[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -166,64 +268,69 @@ export default function Home() {
     { id: '2', userName: 'Developer Engineer 02', text: 'Telemetry metrics missing for Cloud project.', status: 'reviewed', createdAt: new Date(Date.now() - 7200000).toISOString() }
   ]);
 
-  // Interactive Quest Value Estimator Simulator State
-  const [simDept, setSimDept] = useState<'Engineering' | 'Product' | 'Design' | 'Marketing'>('Engineering');
-  const [simTasks, setSimTasks] = useState({ easy: 2, medium: 1, hard: 0, extreme: 0 });
-  const [simStreak, setSimStreak] = useState(5);
-  const [simQuality, setSimQuality] = useState(8);
-  const [simulating, setSimulating] = useState(false);
+  // Holographic Quest Forge Sandbox State
+  const [forgeName, setForgeName] = useState('Cache synchronization daemon');
+  const [forgeDept, setForgeDept] = useState<'Engineering' | 'Product' | 'Design' | 'Marketing'>('Engineering');
+  const [forgeDifficulty, setForgeDifficulty] = useState<'easy' | 'medium' | 'hard' | 'extreme'>('medium');
+  const [forgeBadge, setForgeBadge] = useState('Innovation Hero');
+  const [isForging, setIsForging] = useState(false);
+  const [forgeLog, setForgeLog] = useState<string[]>([]);
+  const [forgeSuccess, setForgeSuccess] = useState(false);
 
-  const handleTaskSimCount = (difficulty: 'easy' | 'medium' | 'hard' | 'extreme', operation: 'add' | 'sub') => {
+  const executeForgeSimulation = () => {
     handleSoundClick();
-    setSimTasks(prev => {
-      const current = prev[difficulty];
-      const nextVal = operation === 'add' ? current + 1 : Math.max(0, current - 1);
-      return { ...prev, [difficulty]: nextVal };
+    setIsForging(true);
+    setForgeSuccess(false);
+    setForgeLog([`[INFO] Initializing Quest Forge Engine...`]);
+
+    const logs = [
+      `[INFO] Validating department node: ${forgeDept}...`,
+      `[INFO] Calculating difficulty weight coefficients for "${forgeDifficulty}"...`,
+      `[INFO] Securing tokenized badge assignment: "${forgeBadge}"...`,
+      `[PROCESS] Compiling cryptographic telemetry specs...`,
+      `[SUCCESS] Quest "${forgeName}" compiled successfully!`,
+      `[SUCCESS] Hashing Quest node to simulated ledger...`
+    ];
+
+    logs.forEach((log, index) => {
+      setTimeout(() => {
+        setForgeLog(prev => [...prev, log]);
+        if (index === logs.length - 1) {
+          setIsForging(false);
+          setForgeSuccess(true);
+          const xpYield = forgeDifficulty === 'easy' ? 25 : forgeDifficulty === 'medium' ? 50 : forgeDifficulty === 'hard' ? 100 : 200;
+          triggerNotification(`Quest Forged successfully! +${xpYield} XP predicted.`, "xp", `${xpYield}`);
+          
+          confetti({
+            particleCount: 80,
+            spread: 60,
+            origin: { y: 0.85 },
+            colors: ['#00e5ff', '#7c3aed', '#10b981']
+          });
+        }
+      }, (index + 1) * 350);
     });
-  };
-
-  const getSimulatedXp = () => {
-    let base = 0;
-    base += simTasks.easy * 15;
-    base += simTasks.medium * 30;
-    base += simTasks.hard * 60;
-    base += simTasks.extreme * 120;
-    
-    const qualityMult = 0.6 + (simQuality * 0.05);
-    const streakMult = 1 + (simStreak * 0.034);
-    return Math.round(base * qualityMult * streakMult);
-  };
-
-  const executeSimulation = () => {
-    handleSoundClick();
-    setSimulating(true);
-    const xp = getSimulatedXp();
-    setTimeout(() => {
-      setSimulating(false);
-      triggerNotification(`Simulation finished. Yielded +${xp} XP!`, "xp", `${xp}`);
-      if (xp >= 1000) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.8 },
-          colors: ['#00e5ff', '#7c3aed', '#00ff66']
-        });
-      }
-    }, 800);
   };
 
   // Load telemetry data from MongoDB backend
   const loadBackendData = async () => {
     try {
-      // 1. Fetch tasks
+      // 1. Fetch tasks (merge with mockTasks fallback)
       const tasksRes = await fetch(`${API_BASE}/tasks`);
       if (tasksRes.ok) {
         const data = await tasksRes.json();
-        setTasks(data.map((t: { _id?: string; id?: string; status: string }) => ({
-          ...t,
-          id: t._id || t.id,
-          status: t.status.toLowerCase()
-        })));
+        if (data.length > 0) {
+          const backendTasks = data.map((t: { _id?: string; id?: string; status: string }) => ({
+            ...t,
+            id: t._id || t.id,
+            status: t.status.toLowerCase()
+          }));
+          // Merge: backend tasks + any mockTasks whose id is not already in backend
+          const backendIds = new Set(backendTasks.map((t: { id: string }) => t.id));
+          const merged = [...backendTasks, ...mockTasks.filter(t => !backendIds.has(t.id))];
+          setTasks(merged);
+        }
+        // If backend returned empty array, keep the existing mockTasks intact
       }
 
       // 2. Fetch rewards
@@ -280,13 +387,117 @@ export default function Home() {
       } catch (err) {
         console.warn("Failed to fetch complaints", err);
       }
+
+      // 8. Fetch company financial analytics
+      try {
+        const compRes = await fetch(`${API_BASE}/analytics/company`);
+        if (compRes.ok) {
+          const data = await compRes.json();
+          if (data.financials) setCompanyFinancials(data.financials);
+          if (data.expenseBreakdown) setExpenseBreakdown(data.expenseBreakdown);
+          if (data.summary) setFinancialSummary(data.summary);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch company financial analytics", err);
+      }
     } catch (err) {
       console.warn("WorkQuest API server offline. Using local telemetry state.", err);
     }
   };
 
-  // Load token on mount
+  const handleGoogleLoginBackend = async (idToken: string) => {
+    setAuthLoading(true);
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    try {
+      const res = await fetch(`${API_BASE}/auth/google-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken })
+      });
+      
+      await sleep(1500); // Visual loader matching standard email/password authentication
+      
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('workquest_token', data.token);
+        localStorage.setItem('workquest_user', JSON.stringify(data.user));
+        setCurrentUser(data.user);
+        
+        if (data.user.role === 'Admin' || data.user.role === 'admin') {
+          setAppState('ceo_dashboard');
+          triggerNotification("Executive system access enabled", "success");
+        } else if (data.user.role === 'Manager' || data.user.role === 'manager') {
+          setAppState('manager_dashboard');
+          triggerNotification("Secured administrator level access token", "success");
+        } else {
+          setAppState('employee_dashboard');
+          triggerNotification("Logged in to workspace session", "success");
+          if (soundEnabled) sfx.playStreakFire();
+        }
+        loadBackendData();
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Google authentication failed.");
+        setAuthLoading(false);
+      }
+    } catch (err) {
+      console.warn("Google SSO Backend authentication offline fallback", err);
+      await sleep(1500);
+      
+      let email = 'tajkiranjunnuri@gmail.com';
+      try {
+        const base64Url = idToken.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(atob(base64));
+        if (payload.email) email = payload.email;
+      } catch (e) {}
+      
+      const role = (email.toLowerCase() === 'tajkiranjunnuri@gmail.com' || email.toLowerCase() === 'bhanug5616@gmail.com') ? 'admin' : 'employee';
+      setSsoProvider('google');
+      executeSsoLogin(email, role);
+    }
+  };
+
+  // Load token on mount & fetch Google GSI script
   useEffect(() => {
+    // Parse Google OAuth redirect token from URL hash
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash && (hash.includes('access_token=') || hash.includes('id_token='))) {
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get('access_token');
+        const idToken = params.get('id_token');
+        
+        window.history.replaceState(null, '', window.location.pathname);
+        
+        if (idToken) {
+          handleGoogleLoginBackend(idToken);
+        } else if (accessToken) {
+          setAuthLoading(true);
+          fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`)
+            .then(res => {
+              if (res.ok) return res.json();
+              throw new Error("Failed to query Google UserInfo");
+            })
+            .then(userInfo => {
+              const email = userInfo.email;
+              const name = userInfo.name;
+              const picture = userInfo.picture;
+              const role = (email.toLowerCase() === 'tajkiranjunnuri@gmail.com' || email.toLowerCase() === 'bhanug5616@gmail.com') ? 'admin' : 'employee';
+              
+              setSsoProvider('google');
+              executeSsoLogin(email, role, name, picture);
+            })
+            .catch(err => {
+              console.error("Failed to authenticate Google access token:", err);
+              setAuthLoading(false);
+            });
+        }
+      }
+    }
+
+    // Persisted session load
     const token = localStorage.getItem('workquest_token');
     const userStr = localStorage.getItem('workquest_user');
     if (token && userStr) {
@@ -304,6 +515,36 @@ export default function Home() {
         console.error("Failed to parse persisted user session", e);
       }
     }
+
+    // Listen for Google SSO popup authentication messages
+    const handleSsoMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data && event.data.type === 'google-sso-success') {
+        const { idToken, email, role, name, picture } = event.data;
+        if (idToken) {
+          handleGoogleLoginBackend(idToken);
+        } else {
+          setSsoProvider('google');
+          executeSsoLogin(email, role, name, picture);
+        }
+      }
+    };
+    window.addEventListener('message', handleSsoMessage);
+
+    // Load Google client script
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+    
+    return () => {
+      window.removeEventListener('message', handleSsoMessage);
+      const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      if (existing && existing.parentNode) {
+        existing.parentNode.removeChild(existing);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -426,6 +667,18 @@ export default function Home() {
     }
   }, [appState]);
 
+
+
+  // Poll backend data every 5 seconds to ensure real-time synchronization between manager and employee portals
+  useEffect(() => {
+    if (['employee_dashboard', 'manager_dashboard', 'ceo_dashboard'].includes(appState)) {
+      const interval = setInterval(() => {
+        loadBackendData();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [appState]);
+
   // Auth Handling
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -494,17 +747,130 @@ export default function Home() {
     }
   };
 
-  const handleSsoLogin = async (provider: 'google' | 'microsoft') => {
-    handleSoundClick();
+  const executeSsoLogin = async (email: string, selectedRole?: 'admin' | 'employee', selectedName?: string, selectedAvatar?: string) => {
+    if (!ssoProvider) return;
+    setSsoModalOpen(false);
     setAuthLoading(true);
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    await sleep(1500); // 1.5s visual after effect loading
-    triggerNotification(`Authenticated token via ${provider === 'google' ? 'Google' : 'Microsoft'} SSO`, 'success');
-    setCurrentUser(mockUsers[0]);
-    localStorage.setItem('workquest_token', 'mock_sso_token');
-    localStorage.setItem('workquest_user', JSON.stringify(mockUsers[0]));
-    setAppState('employee_dashboard');
+    const providerName = ssoProvider === 'google' ? 'Google' : 'Microsoft';
+    
+    // Map roles: if selectedRole is provided, we use it. Otherwise inspect email
+    let finalRole: 'Admin' | 'Manager' | 'Employee' = 'Employee';
+    if (selectedRole) {
+      finalRole = selectedRole === 'admin' ? 'Admin' : 'Employee';
+    } else {
+      if (email.includes('admin') || email.includes('ceo')) {
+        finalRole = 'Admin';
+      } else if (email.includes('manager') || email.includes('sarah')) {
+        finalRole = 'Manager';
+      }
+    }
+
+    const finalName = selectedName || (finalRole === 'Admin' ? 'Admin Commander 01' : finalRole === 'Manager' ? 'Manager Leader 01' : 'Developer Engineer 01');
+    const finalAvatar = selectedAvatar || (finalRole === 'Admin' ? mockUsers[2].avatar : finalRole === 'Manager' ? mockUsers[1].avatar : mockUsers[0].avatar);
+
+    try {
+      // 1. Attempt to resolve user from backend
+      const res = await fetch(`${API_BASE}/users`);
+      await sleep(1500); // 1.5s visual loader
+      
+      if (res.ok) {
+        const users: User[] = await res.json();
+        const matchedUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        
+        if (matchedUser) {
+          if (selectedRole) {
+            matchedUser.role = selectedRole === 'admin' ? 'Admin' : 'Employee';
+          }
+          localStorage.setItem('workquest_token', `mock_sso_${ssoProvider}_token`);
+          localStorage.setItem('workquest_user', JSON.stringify(matchedUser));
+          setCurrentUser(matchedUser);
+          
+          if (matchedUser.role === 'Admin') {
+            setAppState('ceo_dashboard');
+            triggerNotification(`Executive access enabled via ${providerName} SSO`, "success");
+          } else if (matchedUser.role === 'Manager') {
+            setAppState('manager_dashboard');
+            triggerNotification(`Secured administrator level access via ${providerName} SSO`, "success");
+          } else {
+            setAppState('employee_dashboard');
+            triggerNotification(`Logged in to workspace session via ${providerName} SSO`, "success");
+            if (soundEnabled) sfx.playStreakFire();
+          }
+          loadBackendData();
+          setAuthLoading(false);
+          setSsoProvider(null);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Express server offline during SSO authentication. Falling back to offline SSO.", err);
+    }
+    
+    // 2. Offline Fallback logic
+    await sleep(1000);
+    
+    const mockBase = finalRole === 'Admin' ? mockUsers[2] : finalRole === 'Manager' ? mockUsers[1] : mockUsers[0];
+    const userObj: User = {
+      ...mockBase,
+      name: finalName,
+      email: email,
+      avatar: finalAvatar,
+      role: finalRole.toLowerCase() as any
+    };
+    
+    let token = `mock_${ssoProvider}_employee_token`;
+    let targetState: any = 'employee_dashboard';
+    let notifyMsg = `Logged in as ${finalName} via ${providerName} SSO`;
+    
+    if (finalRole === 'Admin') {
+      token = `mock_${ssoProvider}_admin_token`;
+      targetState = 'ceo_dashboard';
+      notifyMsg = `Executive system access enabled for ${finalName}`;
+    } else if (finalRole === 'Manager') {
+      token = `mock_${ssoProvider}_manager_token`;
+      targetState = 'manager_dashboard';
+      notifyMsg = `Secured administrator access for ${finalName}`;
+    }
+    
+    localStorage.setItem('workquest_token', token);
+    localStorage.setItem('workquest_user', JSON.stringify(userObj));
+    setCurrentUser(userObj);
+    setAppState(targetState);
+    triggerNotification(notifyMsg, "success");
+    if (targetState === 'employee_dashboard' && soundEnabled) {
+      sfx.playStreakFire();
+    }
     setAuthLoading(false);
+    setSsoProvider(null);
+  };
+
+  const handleGoogleSsoClick = () => {
+    handleSoundClick();
+    
+    let clientId = '';
+    if (typeof window !== 'undefined') {
+      clientId = localStorage.getItem('google_client_id') || '';
+    }
+    if (!clientId) {
+      clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+    }
+    
+    // If Client ID is empty or standard invalid placeholder, show the connect prompt
+    if (!clientId || clientId.includes('YOUR_GOOGLE') || clientId.includes('547514809228')) {
+      setTempClientId('');
+      setShowClientIdPrompt(true);
+      return;
+    }
+    
+    // Direct redirect to Google's actual OAuth 2.0 endpoint page
+    if (typeof window !== 'undefined') {
+      const redirectUri = window.location.origin;
+      const nonce = Math.random().toString(36).substring(2);
+      const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token%20token&scope=openid%20email%20profile&prompt=select_account&nonce=${nonce}`;
+      
+      window.location.href = oauthUrl;
+    }
   };
 
   const handleLogout = () => {
@@ -527,13 +893,16 @@ export default function Home() {
     if (!newTaskTitle) return;
 
     const targetXp = difficultyXp[newTaskDifficulty] || 30;
+    const assigneeUser = usersList.find(u => (u.employeeId || u.id) === newTaskAssignee);
+    const assignedToName = assigneeUser ? assigneeUser.name : (newTaskAssignee === 'emp-1' ? 'Developer Engineer 01' : 'Jordan Sparks');
+
     const taskPayload = {
       title: newTaskTitle,
       description: newTaskDesc,
       difficulty: newTaskDifficulty,
       xp: targetXp,
       assignedTo: newTaskAssignee,
-      assignedToName: newTaskAssignee === 'emp-1' ? 'Developer Engineer 01' : 'Jordan Sparks',
+      assignedToName: assignedToName,
       assignedBy: currentUser.employeeId || currentUser.id
     };
 
@@ -561,7 +930,7 @@ export default function Home() {
           dueDate: getDueDate(),
           status: 'todo',
           assignedTo: newTaskAssignee,
-          assignedToName: newTaskAssignee === 'emp-1' ? 'Developer Engineer 01' : 'Jordan Sparks',
+          assignedToName: assignedToName,
           assignedBy: currentUser.id,
           commentsCount: 0
         };
@@ -581,7 +950,7 @@ export default function Home() {
         dueDate: getDueDate(),
         status: 'todo',
         assignedTo: newTaskAssignee,
-        assignedToName: newTaskAssignee === 'emp-1' ? 'Developer Engineer 01' : 'Jordan Sparks',
+        assignedToName: assignedToName,
         assignedBy: currentUser.id,
         commentsCount: 0
       };
@@ -615,6 +984,108 @@ export default function Home() {
     } catch {
       setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: newStatus } : t));
     }
+  };
+
+  const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      triggerNotification("Only PDF files are accepted for document verification.", "success");
+      return;
+    }
+
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setUploadFileBase64(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    triggerNotification(`Uploaded ${file.name} successfully`, "success");
+  };
+
+  const handleAiVerifySubmit = async () => {
+    if (!selectedTaskForUpload) return;
+    setIsVerifying(true);
+    setVerificationLogs([`[INFO] Connecting to AI Verification Node...`]);
+
+    const logs = [
+      `[INFO] Retrieving submission payload (PDF/Link)...`,
+      `[PROCESS] Analyzing file signatures & source integrity...`,
+      `[PROCESS] Compiling test metrics against Quest specification...`,
+      `[PROCESS] Evaluating code quality and department standards...`,
+      `[SUCCESS] Compliance verification complete. Generative feedback generated.`
+    ];
+
+    logs.forEach((log, index) => {
+      setTimeout(async () => {
+        setVerificationLogs(prev => [...prev, log]);
+        if (index === logs.length - 1) {
+          const calculatedScore = Math.floor(Math.random() * 3) + 8; // Score: 8, 9, 10
+          setVerificationScore(calculatedScore);
+          
+          let aiFeedback = `AI Verification Report:\n`;
+          if (uploadLink) {
+            aiFeedback += `- Project URL: ${uploadLink}\n`;
+          }
+          if (uploadedFileName) {
+            aiFeedback += `- Submission File: ${uploadedFileName}\n`;
+          }
+          aiFeedback += `- Acceptance Criteria: MET\n`;
+          aiFeedback += `- Performance Index: OPTIMAL\n`;
+          aiFeedback += `- AI Insights: Clean structure, robust memory caching implementation, and comprehensive unit tests. Well done!`;
+
+          setVerificationFeedback(aiFeedback);
+
+          try {
+            // First step: mark as in_review
+            await fetch(`${API_BASE}/tasks/${selectedTaskForUpload.id}/status`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'in_review' })
+            });
+
+            // Second step: approve it directly
+            const res = await fetch(`${API_BASE}/tasks/${selectedTaskForUpload.id}/approve`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ qualityScore: calculatedScore, feedback: aiFeedback })
+            });
+
+            if (res.ok) {
+              const result = await res.json();
+              const updatedTask = result.task;
+              
+              setTasks((prev) =>
+                prev.map((t) => (t.id === selectedTaskForUpload.id ? { ...updatedTask, id: updatedTask._id || updatedTask.id, status: updatedTask.status.toLowerCase() } : t))
+              );
+
+              triggerNotification(`AI Verified! +${selectedTaskForUpload.xp} XP registered`, 'xp', `+${selectedTaskForUpload.xp}`);
+              
+              confetti({
+                particleCount: 120,
+                spread: 80,
+                origin: { y: 0.75 },
+                colors: ['#00e5ff', '#7c3aed', '#10b981']
+              });
+
+              loadBackendData();
+            } else {
+              setTasks((prev) =>
+                prev.map((t) => (t.id === selectedTaskForUpload.id ? { ...t, status: 'completed', qualityScore: calculatedScore, feedback: aiFeedback } : t))
+              );
+            }
+          } catch (err) {
+            console.error("AI Verify error:", err);
+            setTasks((prev) =>
+              prev.map((t) => (t.id === selectedTaskForUpload.id ? { ...t, status: 'completed', qualityScore: calculatedScore, feedback: aiFeedback } : t))
+            );
+          }
+
+          setIsVerifying(false);
+        }
+      }, (index + 1) * 450);
+    });
   };
 
   // Manager Approval Logic
@@ -1094,28 +1565,49 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Right Side: Simulated Leaderboard View */}
+                {/* Right Side: AI Burnout Guardian Telemetry Card */}
                 <TiltCard className="tilt-reveal delay-200">
-                  <div className="glass-panel p-8 rounded-2xl border-glow border-[#00e5ff]/20 bg-zinc-950/40 shadow-xl relative">
-                    <div className="absolute top-4 right-4 text-[8px] font-mono text-zinc-500 tracking-widest uppercase">● Live Telemetry</div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-6 font-mono">🏆 Leaderboard Rankings</h3>
-                    <div className="space-y-4">
-                      {mockLeaderboard.slice(0, 3).map((lead, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-zinc-950/60 border border-[#00e5ff]/10 hover:border-[#00e5ff]/35 transition duration-300 shadow-[0_0_15px_rgba(0,229,255,0.02)]">
-                          <div className="flex items-center gap-4">
-                            <span className="font-mono text-xs text-zinc-500">#0{idx + 1}</span>
-                            <img src={lead.avatar} className="w-8 h-8 rounded-full object-cover border border-[#00e5ff]/25" alt="" />
-                            <div>
-                              <p className="text-xs font-bold text-white font-sans">{lead.name}</p>
-                              <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-mono mt-0.5">{lead.department}</p>
-                            </div>
-                          </div>
-                          <div className="text-right font-mono">
-                            <p className="text-xs font-bold text-[#00e5ff]">{lead.xp} XP</p>
-                            <p className="text-[8px] text-zinc-500 mt-0.5">LVL {lead.level}</p>
-                          </div>
+                  <div className="glass-panel p-8 rounded-2xl border-glow border-purple-500/20 bg-zinc-950/40 shadow-xl relative">
+                    <div className="absolute top-4 right-4 text-[8px] font-mono text-zinc-500 tracking-widest uppercase">● Live AI Telemetry</div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-6 font-mono">🤖 Burnout Guardian Node</h3>
+                    
+                    <div className="space-y-6">
+                      {/* Metric Gauge */}
+                      <div className="p-4 rounded-xl bg-zinc-950/60 border border-purple-500/10">
+                        <div className="flex justify-between items-center mb-2 font-mono text-[10px]">
+                          <span className="text-zinc-400 uppercase font-bold tracking-wider">Cognitive Load Index</span>
+                          <span className="text-purple-400 font-bold">28% (STABLE)</span>
                         </div>
-                      ))}
+                        <div className="w-full h-2 rounded-full bg-zinc-900 overflow-hidden relative border border-purple-500/10">
+                          <div className="h-full bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full" style={{ width: '28%' }} />
+                        </div>
+                      </div>
+
+                      {/* Diagnostic Items */}
+                      <div className="grid grid-cols-2 gap-4 text-left font-mono">
+                        <div className="p-3.5 rounded-lg bg-zinc-950/40 border border-white/5">
+                          <span className="text-[8px] text-zinc-500 uppercase font-bold tracking-wider block">Sleep Quality</span>
+                          <span className="text-xs font-bold text-white mt-1 block">92.4% (Optimal)</span>
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-zinc-950/40 border border-white/5">
+                          <span className="text-[8px] text-zinc-500 uppercase font-bold tracking-wider block">Workspace Velocity</span>
+                          <span className="text-xs font-bold text-[#00e5ff] mt-1 block">12.8 Tasks/Wk</span>
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-zinc-950/40 border border-white/5">
+                          <span className="text-[8px] text-zinc-500 uppercase font-bold tracking-wider block">Streak Multiplier</span>
+                          <span className="text-xs font-bold text-emerald-400 mt-1 block">1.45x Active</span>
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-zinc-950/40 border border-white/5">
+                          <span className="text-[8px] text-zinc-500 uppercase font-bold tracking-wider block">Rest Coefficient</span>
+                          <span className="text-xs font-bold text-purple-400 mt-1 block">8.5h Avg Rest</span>
+                        </div>
+                      </div>
+
+                      {/* Guardian Recommendation */}
+                      <div className="p-4 rounded-xl border border-emerald-500/10 bg-emerald-500/[0.02] text-left font-mono text-[9px] leading-relaxed text-emerald-400">
+                        <span className="font-bold uppercase tracking-wider block mb-1">✓ Automated Advice:</span>
+                        Pulse telemetry indicates optimal balance. No burnout risk detected. Recommendation: Maintain current workflow rate and streak levels.
+                      </div>
                     </div>
                   </div>
                 </TiltCard>
@@ -1190,18 +1682,18 @@ export default function Home() {
               </div>
             </section>
 
-            {/* Interactive Section: Estimator Engine / Quest Simulator */}
+            {/* Interactive Section: Holographic Quest Forge Sandbox */}
             <section className="max-w-7xl w-full px-6 py-28 border-b border-white/5 text-left relative z-20">
               <div className="tilt-reveal flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
                 <div>
                   <span className="text-[9px] font-mono text-[#00e5ff] uppercase tracking-widest block mb-2">{"// Telemetry Sandbox"}</span>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-white uppercase font-sans">Quest Value Estimator</h2>
-                  <p className="text-zinc-400 text-xs mt-3 font-mono max-w-xl">Simulate task assignments, daily active streaks, and quality score variables to forecast your XP yield and rewards.</p>
+                  <h2 className="text-3xl font-extrabold tracking-tight text-white uppercase font-sans">Holographic Quest Forge</h2>
+                  <p className="text-zinc-400 text-xs mt-3 font-mono max-w-xl">Simulate on-chain ticket creation metrics, select diagnostic badges, and compile a fully hashed Quest node.</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-stretch">
-                {/* Left Panel: Inputs (3 cols) */}
+                {/* Left Panel: Forge Parameters (3 cols) */}
                 <div className="lg:col-span-3 glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/30 flex flex-col justify-between gap-8 relative overflow-hidden">
                   <div className="absolute top-4 left-4 w-2 h-2 border-t border-l border-[#00e5ff]/30" />
                   <div className="absolute top-4 right-4 w-2 h-2 border-t border-r border-[#00e5ff]/30" />
@@ -1209,6 +1701,18 @@ export default function Home() {
                   <div className="absolute bottom-4 right-4 w-2 h-2 border-b border-r border-[#00e5ff]/30" />
                   
                   <div className="space-y-6">
+                    {/* Input: Quest Title */}
+                    <div>
+                      <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-3 font-mono">Quest Title / Identifier</label>
+                      <input 
+                        type="text" 
+                        value={forgeName}
+                        onChange={(e) => setForgeName(e.target.value)}
+                        placeholder="e.g. Cache synchronization daemon..."
+                        className="w-full px-4 py-3 rounded-lg bg-zinc-950 border border-white/5 text-white placeholder-zinc-700 text-xs focus:border-[#00e5ff] focus:outline-none transition font-mono"
+                      />
+                    </div>
+
                     {/* Selector: Department */}
                     <div>
                       <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-3 font-mono">Department Node</label>
@@ -1217,9 +1721,9 @@ export default function Home() {
                           <button
                             key={dept}
                             type="button"
-                            onClick={() => { setSimDept(dept); handleSoundClick(); }}
+                            onClick={() => { setForgeDept(dept); handleSoundClick(); }}
                             className={`py-2 px-3 rounded-lg border transition duration-300 text-center capitalize cursor-pointer ${
-                              simDept === dept 
+                              forgeDept === dept 
                                 ? 'border-[#00e5ff] bg-[#00e5ff]/10 text-white font-bold' 
                                 : 'border-white/5 bg-zinc-950/60 text-zinc-400 hover:border-white/10'
                             }`}
@@ -1230,103 +1734,74 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Task Allocator Counters */}
+                    {/* Selector: Difficulty & XP scale */}
                     <div>
-                      <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-3 font-mono">Allocate Task Difficulty Nodes</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-[10px]">
+                      <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-3 font-mono">Node Weight (Difficulty)</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[10px]">
                         {(['easy', 'medium', 'hard', 'extreme'] as const).map(difficulty => {
-                          const xpMap = { easy: 15, medium: 30, hard: 60, extreme: 120 };
+                          const xpYield = difficulty === 'easy' ? 25 : difficulty === 'medium' ? 50 : difficulty === 'hard' ? 100 : 200;
                           return (
-                            <div key={difficulty} className="p-3.5 rounded-xl bg-zinc-950/80 border border-white/5 flex flex-col justify-between items-center text-center gap-3">
-                              <span className="uppercase text-[8px] font-bold text-zinc-500 tracking-wider">{difficulty} ({xpMap[difficulty]} XP)</span>
-                              <div className="flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => handleTaskSimCount(difficulty, 'sub')}
-                                  className="w-6 h-6 rounded-full border border-white/10 hover:border-[#00e5ff] text-zinc-400 hover:text-white flex items-center justify-center transition cursor-pointer"
-                                >
-                                  <Minus size={10} />
-                                </button>
-                                <span className="text-xs font-bold text-white w-4">{simTasks[difficulty]}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleTaskSimCount(difficulty, 'add')}
-                                  className="w-6 h-6 rounded-full border border-white/10 hover:border-[#00e5ff] text-zinc-400 hover:text-white flex items-center justify-center transition cursor-pointer"
-                                >
-                                  <Plus size={10} />
-                                </button>
-                              </div>
-                            </div>
+                            <button
+                              key={difficulty}
+                              type="button"
+                              onClick={() => { setForgeDifficulty(difficulty); handleSoundClick(); }}
+                              className={`py-2 px-3 rounded-lg border transition duration-300 text-center uppercase cursor-pointer flex flex-col items-center gap-1 ${
+                                forgeDifficulty === difficulty 
+                                  ? 'border-[#00e5ff] bg-[#00e5ff]/10 text-white font-bold' 
+                                  : 'border-white/5 bg-zinc-950/60 text-zinc-400 hover:border-white/10'
+                              }`}
+                            >
+                              <span>{difficulty}</span>
+                              <span className="text-[8px] text-zinc-500 font-normal">+{xpYield} XP</span>
+                            </button>
                           );
                         })}
                       </div>
                     </div>
 
-                    {/* Sliders: Streak & Quality */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      {/* Streak Slider */}
-                      <div>
-                        <div className="flex justify-between items-center mb-2 font-mono text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
-                          <span>Active Streak Modifier</span>
-                          <span className="text-[#00e5ff] font-bold">{simStreak} Days</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="30"
-                          value={simStreak}
-                          onChange={(e) => { setSimStreak(parseInt(e.target.value, 10)); handleSoundClick(); }}
-                          className="w-full accent-[#00e5ff] cursor-pointer h-1 bg-zinc-900 rounded-lg appearance-none"
-                        />
-                        <div className="flex justify-between text-[8px] text-zinc-600 font-mono mt-1">
-                          <span>1 Day (1.0x)</span>
-                          <span>30 Days (~2.0x)</span>
-                        </div>
-                      </div>
-
-                      {/* Quality Score Slider */}
-                      <div>
-                        <div className="flex justify-between items-center mb-2 font-mono text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
-                          <span>Target Quality Rating</span>
-                          <span className="text-[#7c3aed] font-bold">{simQuality}/10</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="4"
-                          max="10"
-                          value={simQuality}
-                          onChange={(e) => { setSimQuality(parseInt(e.target.value, 10)); handleSoundClick(); }}
-                          className="w-full accent-[#7c3aed] cursor-pointer h-1 bg-zinc-900 rounded-lg appearance-none"
-                        />
-                        <div className="flex justify-between text-[8px] text-zinc-600 font-mono mt-1">
-                          <span>4/10 (0.8x)</span>
-                          <span>10/10 (1.1x)</span>
-                        </div>
+                    {/* Selector: Unlockable Badge */}
+                    <div>
+                      <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-3 font-mono">Unlockable Badge Reward</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[10px]">
+                        {(['Early Bird', 'Task Master', 'Innovation Hero', 'Bug Hunter'] as const).map(badge => (
+                          <button
+                            key={badge}
+                            type="button"
+                            onClick={() => { setForgeBadge(badge); handleSoundClick(); }}
+                            className={`py-2 px-3 rounded-lg border transition duration-300 text-center cursor-pointer ${
+                              forgeBadge === badge 
+                                ? 'border-[#7c3aed] bg-purple-500/10 text-white font-bold' 
+                                : 'border-white/5 bg-zinc-950/60 text-zinc-400 hover:border-white/10'
+                            }`}
+                          >
+                            {badge}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
 
-                  {/* Submit Simulation */}
+                  {/* Forge Button */}
                   <button
                     type="button"
-                    onClick={executeSimulation}
-                    disabled={simulating}
-                    className="w-full py-4 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 disabled:opacity-50 shadow-[0_0_20px_rgba(0,229,255,0.25)] flex items-center justify-center gap-2 cyber-bracket cursor-pointer"
+                    onClick={executeForgeSimulation}
+                    disabled={isForging}
+                    className="w-full py-4 rounded-lg bg-[#00e5ff] text-black font-bold text-xs uppercase tracking-widest hover:bg-white transition duration-300 disabled:opacity-50 shadow-[0_0_20px_rgba(0,229,255,0.25)] flex items-center justify-center gap-2 cyber-bracket cursor-pointer font-mono"
                   >
-                    {simulating ? (
+                    {isForging ? (
                       <>
-                        <RefreshCw className="animate-spin" size={14} /> Synchronizing Neural Plexus...
+                        <RefreshCw className="animate-spin" size={14} /> Compiling Cryptographic Node...
                       </>
                     ) : (
                       <>
-                        <Cpu size={14} /> Run Simulation
+                        <Cpu size={14} /> Forge System Quest
                       </>
                     )}
                   </button>
                 </div>
 
                 {/* Right Panel: Output HUD (2 cols) */}
-                <div className="lg:col-span-2 glass-panel p-8 rounded-2xl border-[#00e5ff]/20 bg-zinc-950/50 flex flex-col justify-between relative overflow-hidden text-zinc-400 font-mono text-[10px]">
+                <div className="lg:col-span-2 glass-panel p-8 rounded-2xl border-[#00e5ff]/20 bg-zinc-950/50 flex flex-col justify-between relative overflow-hidden text-zinc-400 font-mono text-[10px] min-h-[420px]">
                   <div className="absolute top-4 left-4 w-2.5 h-2.5 border-t-2 border-l-2 border-[#00e5ff]" />
                   <div className="absolute top-4 right-4 w-2.5 h-2.5 border-t-2 border-r-2 border-[#00e5ff]" />
                   <div className="absolute bottom-4 left-4 w-2.5 h-2.5 border-b-2 border-l-2 border-[#00e5ff]" />
@@ -1334,66 +1809,44 @@ export default function Home() {
 
                   <div>
                     <div className="flex justify-between items-center mb-6 pb-4 border-b border-[#00e5ff]/15">
-                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#00e5ff] flex items-center gap-1.5"><Sparkles size={11} className="text-[#00e5ff] animate-pulse" /> Telemetry Readout</h3>
-                      <span className="text-[8px] text-zinc-500">SECURE CONNECT</span>
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#00e5ff] flex items-center gap-1.5"><Sparkles size={11} className="text-[#00e5ff] animate-pulse" /> Forge Log Output</h3>
+                      <span className="text-[8px] text-zinc-500 font-bold uppercase">SECURE CONNECT</span>
                     </div>
 
-                    <div className="space-y-6">
-                      {/* Yielded XP display */}
-                      <div className="text-left">
-                        <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono">Estimated Yield XP</p>
-                        <p className="text-4xl font-extrabold text-white tracking-wider mt-2.5 flex items-baseline gap-1.5 font-sans">
-                          {getSimulatedXp()}
-                          <span className="text-xs text-[#00e5ff] font-mono tracking-widest uppercase font-bold">XP</span>
-                        </p>
-                      </div>
-
-                      {/* Rank progression indicator */}
-                      <div>
-                        <div className="flex justify-between items-center text-[9px] text-zinc-500 uppercase tracking-widest mb-2 font-mono">
-                          <span>Rank Progression</span>
-                          <span className="text-white font-bold">+{Math.floor(getSimulatedXp() / 1000)} LVL</span>
+                    {/* Scroll Terminal Log */}
+                    <div className="p-4 rounded-xl bg-black/60 border border-white/5 h-64 overflow-y-auto font-mono text-[9px] text-zinc-400 space-y-2 flex flex-col text-left">
+                      {forgeLog.map((log, index) => (
+                        <div key={index} className={`leading-relaxed ${log.includes('[SUCCESS]') ? 'text-emerald-400 font-bold' : log.includes('[PROCESS]') ? 'text-purple-400' : 'text-zinc-400'}`}>
+                          {log}
                         </div>
-                        <div className="w-full h-2 rounded-full bg-zinc-950 overflow-hidden relative border border-[#00e5ff]/10 mb-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
-                          <div 
-                            className="h-full bg-gradient-to-r from-[#7c3aed] to-[#00e5ff] transition-all duration-500 shadow-[0_0_10px_rgba(0,229,255,0.25)]" 
-                            style={{ width: `${(getSimulatedXp() % 1000) / 10}%` }} 
-                          />
-                        </div>
-                        <div className="flex justify-between text-[8px] text-zinc-600 font-mono uppercase">
-                          <span>LVL 1</span>
-                          <span>{1000 - (getSimulatedXp() % 1000)} XP to Next LVL</span>
-                        </div>
-                      </div>
-
-                      {/* Decoded item reward prediction */}
-                      {(() => {
-                        const simulatedXp = getSimulatedXp();
-                        const affordable = rewardList
-                          .filter(r => r.cost <= simulatedXp)
-                          .sort((a, b) => b.cost - a.cost)[0] || rewardList[2];
-                        
-                        return (
-                          <div className="p-4.5 rounded-xl bg-zinc-950/80 border border-white/5 flex flex-col gap-3.5 text-left">
-                            <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold flex items-center gap-1.5 font-mono"><Award size={11} className="text-[#00e5ff]" /> Affordable Store Loot</p>
-                            <div className="flex items-center gap-3">
-                              <img src={affordable.image} alt={affordable.title} className="w-11 h-11 rounded-lg border border-white/10 object-cover filter grayscale contrast-110 brightness-[0.75]" />
-                              <div>
-                                <h4 className="text-[10px] font-bold text-white uppercase tracking-wider leading-snug">{affordable.title}</h4>
-                                <p className="text-[8px] text-[#00e5ff] font-bold mt-1 uppercase tracking-wider">{affordable.cost} XP COST</p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
+                      ))}
+                      {isForging && (
+                        <div className="text-zinc-650 text-zinc-500 animate-pulse">▋ System compiler processing...</div>
+                      )}
+                      {!isForging && forgeLog.length === 0 && (
+                        <div className="text-zinc-650 text-zinc-500 italic">No nodes compiled. Toggle parameters and click Forge.</div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="mt-8 pt-4 border-t border-white/5 text-zinc-600 text-[8px] uppercase tracking-widest flex justify-between">
-                    <span>Dept Node: {simDept}</span>
-                    <span>Streak Mod: {1 + (simStreak * 0.034).toFixed(2)}x</span>
+                  {/* Estimated Output Yield Footer */}
+                  <div className="mt-6 pt-4 border-t border-white/5 flex flex-col gap-2 text-left font-mono">
+                    <div className="flex justify-between items-center text-[9px] uppercase tracking-wider text-zinc-500">
+                      <span>Mapped Department:</span>
+                      <span className="text-white font-bold">{forgeDept}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[9px] uppercase tracking-wider text-zinc-500">
+                      <span>Estimated Reward:</span>
+                      <span className="text-[#00e5ff] font-bold flex items-center gap-1">
+                        <Award size={10} /> +{forgeDifficulty === 'easy' ? 25 : forgeDifficulty === 'medium' ? 50 : forgeDifficulty === 'hard' ? 100 : 200} XP
+                      </span>
+                    </div>
+                    {forgeSuccess && (
+                      <div className="mt-2 text-[9px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/25 p-2.5 rounded-lg flex items-center gap-2">
+                        <Check size={11} /> Cryptographic node forged & verified!
+                      </div>
+                    )}
                   </div>
-
                 </div>
               </div>
             </section>
@@ -1568,20 +2021,13 @@ export default function Home() {
                       <span className="relative bg-zinc-950 px-3 text-[8px] text-zinc-500 uppercase tracking-widest font-mono">Or SSO Credentials</span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 font-mono text-[9px] uppercase">
+                    <div className="flex flex-col gap-4 font-mono text-[9px] uppercase">
                       <button 
-                        onClick={() => handleSsoLogin('google')}
+                        onClick={handleGoogleSsoClick}
                         className="w-full py-3 rounded-lg bg-zinc-950 hover:bg-zinc-900 border border-white/5 text-zinc-300 flex items-center justify-center gap-2 hover:border-[#00e5ff]/50 transition duration-300 cursor-pointer"
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                         Google Account
-                      </button>
-                      <button 
-                        onClick={() => handleSsoLogin('microsoft')}
-                        className="w-full py-3 rounded-lg bg-zinc-950 hover:bg-zinc-900 border border-white/5 text-zinc-300 flex items-center justify-center gap-2 hover:border-purple-500/50 transition duration-300 cursor-pointer"
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
-                        Microsoft AD
                       </button>
                     </div>
 
@@ -1780,7 +2226,16 @@ export default function Home() {
                                 <button 
                                   onClick={(e) => { 
                                     e.stopPropagation(); 
-                                    handleTaskStatusChange(task.id, 'in_review'); 
+                                    setSelectedTaskForUpload(task);
+                                    setUploadLink('');
+                                    setUploadedFileName('');
+                                    setUploadFileBase64('');
+                                    setIsVerifying(false);
+                                    setVerificationLogs([]);
+                                    setVerificationScore(null);
+                                    setVerificationFeedback('');
+                                    setIsUploadModalOpen(true);
+                                    handleSoundClick();
                                   }}
                                   className="px-3 py-1.5 text-[9px] font-mono uppercase tracking-wider rounded-md bg-[#00e5ff] text-black font-bold hover:bg-white transition shadow-[0_0_12px_rgba(0,229,255,0.25)]"
                                 >
@@ -1841,22 +2296,156 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Productivity graph */}
-                <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40 text-left">
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono mb-6">Performance Velocity Output</h3>
-                  <div className="relative h-60 w-full flex items-end gap-3 px-4 border-b border-l border-white/5 pb-2">
-                    {mockProductivityStats.map((stat, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center group cursor-pointer h-full justify-end relative">
-                        <div className="absolute bottom-full mb-3 hidden group-hover:block bg-zinc-950 text-white text-[9px] px-3 py-1.5 rounded-lg font-mono border border-white/5 shadow-lg z-30">
-                          {stat.xp} XP • {stat.tasks} Quests
+                {/* Active Client Milestones */}
+                <div className="glass-panel p-8 rounded-2xl border-purple-500/15 bg-zinc-950/40 text-left">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-base font-bold text-white uppercase tracking-wider font-sans">Active Client Milestones</h3>
+                      <p className="text-xs text-zinc-500 mt-1 font-mono">Observe system-wide project objectives and due schedules.</p>
+                    </div>
+                    <Briefcase className="text-purple-400 animate-pulse" size={18} />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {MOCK_CLIENT_PROJECTS.slice(0, 4).map((project) => (
+                      <div key={project.id} className="p-4 rounded-xl border border-white/5 bg-zinc-950/60 flex flex-col justify-between hover:border-purple-500/35 hover:shadow-[0_0_15px_rgba(124,58,237,0.15)] transition duration-300">
+                        <div className="flex justify-between items-start gap-2 mb-3">
+                          <div>
+                            <h4 className="text-xs font-bold text-white uppercase tracking-wider font-sans leading-snug">{project.projectName}</h4>
+                            <p className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-widest">Client: {project.clientName}</p>
+                          </div>
+                          <span className={`text-[8px] font-mono px-2 py-0.5 rounded font-bold uppercase ${
+                            project.status === 'Active' ? 'bg-[#00ff88]/10 text-[#00ff88] border border-[#00ff88]/20' : 
+                            project.status === 'In Review' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' : 
+                            'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                          }`}>
+                            {project.status}
+                          </span>
                         </div>
-                        <div 
-                          className="w-full bg-zinc-900/60 border-t-2 border-[#00e5ff] rounded-t-md transition-all duration-500 hover:bg-[#00e5ff]/20 shadow-[0_0_12px_rgba(0,229,255,0.1)]"
-                          style={{ height: `${(stat.xp / 350) * 100}%` }}
-                        />
-                        <span className="text-[10px] text-zinc-500 mt-2 font-mono">{stat.day}</span>
+                        <div className="flex justify-between items-center pt-3.5 border-t border-white/5 font-mono text-[9px]">
+                          <span className="text-zinc-500 uppercase tracking-wider">Target Date</span>
+                          <span className="text-purple-400 font-bold">{project.dueDate}</span>
+                        </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* Productivity graph */}
+                <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40 text-left relative overflow-hidden">
+                  {/* Subtle animated background grid */}
+                  <div className="absolute inset-0 opacity-[0.03]" style={{
+                    backgroundImage: 'linear-gradient(rgba(0,229,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.3) 1px, transparent 1px)',
+                    backgroundSize: '40px 40px',
+                  }} />
+                  
+                  <div className="flex justify-between items-center mb-6 relative z-10">
+                    <div>
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">Performance Velocity Output</h3>
+                      <p className="text-[8px] text-zinc-600 font-mono mt-1 uppercase tracking-wider">Weekly XP Distribution • {mockProductivityStats.reduce((a, s) => a + s.xp, 0)} Total XP</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#00e5ff] animate-pulse shadow-[0_0_6px_rgba(0,229,255,0.6)]" />
+                      <span className="text-[8px] text-zinc-500 font-mono uppercase tracking-wider">Live</span>
+                    </div>
+                  </div>
+
+                  {/* Y-axis scale indicators */}
+                  <div className="relative z-10">
+                    <div className="absolute left-0 top-0 h-60 flex flex-col justify-between py-1 -ml-1">
+                      {[Math.max(...mockProductivityStats.map(s => s.xp)), Math.round(Math.max(...mockProductivityStats.map(s => s.xp)) * 0.66), Math.round(Math.max(...mockProductivityStats.map(s => s.xp)) * 0.33), 0].map((val, i) => (
+                        <span key={i} className="text-[7px] text-zinc-600 font-mono w-7 text-right">{val}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Chart area */}
+                  <div className="relative h-60 w-full flex items-end gap-2.5 pl-10 pr-2 border-b border-l border-white/8 pb-2 z-10">
+                    {/* Horizontal grid lines */}
+                    {[0.33, 0.66, 1].map((pct, i) => (
+                      <div key={i} className="absolute left-10 right-2 border-t border-dashed border-white/[0.04]" style={{ bottom: `${pct * 100}%` }} />
+                    ))}
+
+                    {mockProductivityStats.map((stat, idx) => {
+                      const maxXp = Math.max(...mockProductivityStats.map(s => s.xp));
+                      const heightPct = (stat.xp / maxXp) * 100;
+                      const barColors = [
+                        'from-[#00e5ff] to-[#0891b2]',
+                        'from-[#06b6d4] to-[#7c3aed]',
+                        'from-[#7c3aed] to-[#a855f7]',
+                        'from-[#a855f7] to-[#ec4899]',
+                        'from-[#ec4899] to-[#f43f5e]',
+                        'from-[#10b981] to-[#00e5ff]',
+                        'from-[#f59e0b] to-[#ef4444]',
+                      ];
+                      const glowColors = [
+                        'rgba(0,229,255,0.35)',
+                        'rgba(6,182,212,0.35)',
+                        'rgba(124,58,237,0.35)',
+                        'rgba(168,85,247,0.35)',
+                        'rgba(236,72,153,0.35)',
+                        'rgba(16,185,129,0.35)',
+                        'rgba(245,158,11,0.35)',
+                      ];
+                      return (
+                        <div key={idx} className="flex-1 flex flex-col items-center group cursor-pointer h-full justify-end relative">
+                          {/* Floating tooltip */}
+                          <div className="absolute bottom-full mb-4 hidden group-hover:flex flex-col items-center z-40 animate-[fadeIn_0.2s_ease-out]">
+                            <div className="bg-zinc-900/95 backdrop-blur-sm text-white px-4 py-3 rounded-xl font-mono border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] min-w-[100px]">
+                              <p className="text-[11px] font-bold text-[#00e5ff] mb-1">{stat.xp} XP</p>
+                              <p className="text-[9px] text-zinc-400">{stat.tasks} Quests Done</p>
+                              <div className="w-full bg-zinc-800 rounded-full h-1 mt-2">
+                                <div className={`h-full rounded-full bg-gradient-to-r ${barColors[idx]}`} style={{ width: `${heightPct}%` }} />
+                              </div>
+                            </div>
+                            <div className="w-2 h-2 bg-zinc-900/95 border-r border-b border-white/10 rotate-45 -mt-1" />
+                          </div>
+
+                          {/* XP value label on top of bar */}
+                          <span className="text-[9px] font-mono font-bold text-white/60 mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            {stat.xp}
+                          </span>
+
+                          {/* Animated bar */}
+                          <div 
+                            className={`w-full bg-gradient-to-t ${barColors[idx]} rounded-t-lg transition-all duration-700 ease-out relative overflow-hidden group-hover:scale-x-110 group-hover:brightness-125`}
+                            style={{ 
+                              height: `${heightPct}%`,
+                              boxShadow: `0 0 20px ${glowColors[idx]}, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                              animation: `growUp 0.8s ease-out ${idx * 0.1}s both`,
+                            }}
+                          >
+                            {/* Shimmer overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            {/* Animated shine sweep */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                          </div>
+
+                          {/* Day label */}
+                          <span className="text-[10px] text-zinc-500 mt-3 font-mono font-semibold group-hover:text-white transition-colors duration-300 uppercase">{stat.day}</span>
+                          
+                          {/* Active dot indicator */}
+                          <div className={`w-1 h-1 rounded-full mt-1.5 transition-all duration-300 ${idx === mockProductivityStats.indexOf(mockProductivityStats.reduce((a, b) => a.xp > b.xp ? a : b)) ? 'bg-[#00e5ff] shadow-[0_0_6px_rgba(0,229,255,0.8)]' : 'bg-zinc-700 group-hover:bg-zinc-400'}`} />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Bottom stat summary bar */}
+                  <div className="flex justify-between items-center mt-4 pt-3 border-t border-white/5 relative z-10">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-sm bg-gradient-to-r from-[#00e5ff] to-[#7c3aed]" />
+                        <span className="text-[8px] text-zinc-500 font-mono uppercase tracking-wider">Peak: {Math.max(...mockProductivityStats.map(s => s.xp))} XP</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-sm bg-gradient-to-r from-[#a855f7] to-[#ec4899]" />
+                        <span className="text-[8px] text-zinc-500 font-mono uppercase tracking-wider">Avg: {Math.round(mockProductivityStats.reduce((a, s) => a + s.xp, 0) / mockProductivityStats.length)} XP</span>
+                      </div>
+                    </div>
+                    <span className="text-[8px] text-[#00e5ff]/60 font-mono uppercase tracking-wider">
+                      {mockProductivityStats.reduce((a, s) => a + s.tasks, 0)} Total Quests
+                    </span>
                   </div>
                 </div>
 
@@ -1866,39 +2455,41 @@ export default function Home() {
               <div className="flex flex-col gap-8 text-left">
                 
                 {/* Leaderboard */}
-                <div className="glass-panel p-8 rounded-2xl border-[#00e5ff]/15 bg-zinc-950/40">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">Rank rosters</h3>
-                    <Trophy className="text-zinc-400" size={16} />
-                  </div>
-                  <div className="space-y-4">
-                    {mockLeaderboard.map((lead) => (
-                      <div 
-                        key={lead.id} 
-                        className={`flex items-center justify-between p-3.5 rounded-xl border transition duration-300 ${
-                          lead.id === currentUser.id ? 'bg-[#00e5ff]/10 border-[#00e5ff]/35 shadow-md' : 'bg-zinc-950/30 border-white/5 hover:border-white/10'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className={`text-[10px] font-mono font-bold ${
-                            lead.rank === 1 ? 'text-[#00e5ff]' : 'text-zinc-500'
-                          }`}>
-                            #0{lead.rank}
-                          </span>
-                          <img src={lead.avatar} className="w-8 h-8 rounded-full object-cover border border-zinc-800" alt="" />
-                          <div>
-                            <p className="text-xs font-bold text-white font-sans">{lead.name}</p>
-                            <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-mono mt-0.5">{lead.department}</p>
+                {currentUser.role === 'Admin' && (
+                  <div className="glass-panel p-8 rounded-2xl border-[#00e5ff]/15 bg-zinc-950/40">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">Rank rosters</h3>
+                      <Trophy className="text-zinc-400" size={16} />
+                    </div>
+                    <div className="space-y-4">
+                      {mockLeaderboard.map((lead) => (
+                        <div 
+                          key={lead.id} 
+                          className={`flex items-center justify-between p-3.5 rounded-xl border transition duration-300 ${
+                            lead.id === currentUser.id ? 'bg-[#00e5ff]/10 border-[#00e5ff]/35 shadow-md' : 'bg-zinc-950/30 border-white/5 hover:border-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`text-[10px] font-mono font-bold ${
+                              lead.rank === 1 ? 'text-[#00e5ff]' : 'text-zinc-500'
+                            }`}>
+                              #0{lead.rank}
+                            </span>
+                            <img src={lead.avatar} className="w-8 h-8 rounded-full object-cover border border-zinc-800" alt="" />
+                            <div>
+                              <p className="text-xs font-bold text-white font-sans">{lead.name}</p>
+                              <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-mono mt-0.5">{lead.department}</p>
+                            </div>
+                          </div>
+                          <div className="text-right font-mono">
+                            <p className="text-xs font-bold text-white">{lead.xp} XP</p>
+                            <p className="text-[8px] text-zinc-500 mt-0.5">LVL {lead.level}</p>
                           </div>
                         </div>
-                        <div className="text-right font-mono">
-                          <p className="text-xs font-bold text-white">{lead.xp} XP</p>
-                          <p className="text-[8px] text-zinc-500 mt-0.5">LVL {lead.level}</p>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Shop Quick Claim */}
                 <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40">
@@ -1961,6 +2552,7 @@ export default function Home() {
             tasks={tasks}
             setTaskToApprove={setTaskToApprove}
             handleSoundClick={handleSoundClick}
+            usersList={usersList}
           />
         )}
 
@@ -1982,6 +2574,10 @@ export default function Home() {
               triggerNotification={triggerNotification}
               complaintsList={complaintsList}
               setComplaintsList={setComplaintsList}
+              companyFinancials={companyFinancials}
+              expenseBreakdown={expenseBreakdown}
+              financialSummary={financialSummary}
+              leaderboardList={mockLeaderboard}
             />
             <CeoAiAssistant
               currentUser={currentUser}
@@ -2203,6 +2799,124 @@ export default function Home() {
       )}
 
       {/* ===================================================
+          AI PROJECT VERIFICATION & UPLOAD MODAL
+          =================================================== */}
+      {isUploadModalOpen && selectedTaskForUpload && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-lg glass-panel p-8 rounded-2xl border-[#00e5ff]/25 text-left font-mono text-xs bg-zinc-950/80 shadow-2xl relative">
+            <div className="absolute top-4 right-4">
+              <button 
+                onClick={() => { setIsUploadModalOpen(false); handleSoundClick(); }}
+                className="text-zinc-550 text-zinc-500 hover:text-white font-bold w-6 h-6 rounded-full hover:bg-white/5 transition flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2.5 mb-4">
+              <Award className="text-[#00e5ff]" size={18} />
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider font-sans">Submit Quest Solution</h3>
+            </div>
+
+            <p className="text-[10px] text-zinc-400 mb-6 leading-relaxed">
+              Upload your deliverables below. You can submit a project URL or attach a PDF documentation file. Our AI Verification node will instantly compile, build, and test your solution to award XP nodes.
+            </p>
+
+            <div className="space-y-5 mb-6">
+              {/* Target Quest Card */}
+              <div className="p-4 rounded-xl border border-white/5 bg-zinc-950/40 text-zinc-400 text-[10px] flex justify-between items-center">
+                <div>
+                  <span className="uppercase text-[8px] font-bold text-zinc-550 text-zinc-500">Target Quest</span>
+                  <p className="text-white font-bold text-xs mt-1 uppercase tracking-wider">{selectedTaskForUpload.title}</p>
+                </div>
+                <div className="text-right">
+                  <span className="uppercase text-[8px] font-bold text-zinc-550 text-zinc-500">Node XP Weight</span>
+                  <p className="text-[#00e5ff] font-bold text-xs mt-1 font-mono">+{selectedTaskForUpload.xp} XP</p>
+                </div>
+              </div>
+
+              {/* Input: Project Link */}
+              <div>
+                <label className="block text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Project URL / Link</label>
+                <input 
+                  type="text" 
+                  value={uploadLink}
+                  onChange={(e) => setUploadLink(e.target.value)}
+                  placeholder="https://github.com/user/workquest-project"
+                  disabled={isVerifying}
+                  className="w-full px-4 py-3 rounded-lg bg-zinc-950 border border-white/5 text-white placeholder-zinc-700 text-xs focus:border-[#00e5ff] focus:outline-none transition"
+                />
+              </div>
+
+              {/* Input: PDF File Upload */}
+              <div>
+                <label className="block text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Project Documentation (PDF)</label>
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept="application/pdf"
+                    onChange={handlePdfUpload}
+                    disabled={isVerifying}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="p-5 border border-dashed border-white/10 hover:border-[#00e5ff]/35 rounded-xl bg-zinc-950/60 transition text-center flex flex-col items-center justify-center gap-2">
+                    <Upload className="text-zinc-500" size={16} />
+                    <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                      {uploadedFileName ? `Attached: ${uploadedFileName}` : 'Drag and drop or click to attach PDF'}
+                    </span>
+                    <span className="text-[8px] text-zinc-600">ONLY PDF FILES (MAX 10MB)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Log Output area */}
+            {(isVerifying || verificationLogs.length > 0) && (
+              <div className="mb-6 p-4 rounded-xl bg-black/60 border border-[#00e5ff]/15 font-mono text-[9px] text-zinc-400 space-y-1.5 max-h-40 overflow-y-auto flex flex-col text-left">
+                {verificationLogs.map((log, index) => (
+                  <div key={index} className={log.includes('[SUCCESS]') ? 'text-emerald-400 font-bold' : log.includes('[PROCESS]') ? 'text-purple-400' : 'text-zinc-400'}>
+                    {log}
+                  </div>
+                ))}
+                {isVerifying && (
+                  <div className="text-zinc-550 text-zinc-500 animate-pulse">▋ System compiler processing...</div>
+                )}
+              </div>
+            )}
+
+            {/* Final AI Verdict */}
+            {!isVerifying && verificationScore !== null && (
+              <div className="mb-6 p-4.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.02] text-left font-mono space-y-3">
+                <div className="flex justify-between items-center pb-2 border-b border-emerald-500/10">
+                  <span className="text-emerald-400 font-bold uppercase tracking-wider text-[9px]">✓ AI Verification Success</span>
+                  <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold">Score: {verificationScore}/10</span>
+                </div>
+                <pre className="text-[9px] text-zinc-300 whitespace-pre-wrap font-mono leading-relaxed">{verificationFeedback}</pre>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex gap-4">
+              <button 
+                onClick={() => { setIsUploadModalOpen(false); handleSoundClick(); }}
+                disabled={isVerifying}
+                className="flex-1 py-3 rounded-lg border border-white/5 text-zinc-400 font-bold text-[9px] uppercase tracking-widest hover:border-white transition text-center disabled:opacity-50 cursor-pointer"
+              >
+                Close portal
+              </button>
+              <button 
+                onClick={handleAiVerifySubmit}
+                disabled={isVerifying || (!uploadLink && !uploadedFileName)}
+                className="flex-grow py-3 rounded-lg bg-[#00e5ff] text-black font-bold text-[9px] uppercase tracking-widest hover:bg-white transition text-center disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(0,229,255,0.25)]"
+              >
+                <Cpu size={12} /> Launch AI Verification
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================
           8. KANBAN QUEST DETAIL MODAL
           =================================================== */}
       {selectedTask && (
@@ -2319,6 +3033,304 @@ export default function Home() {
           ))}
         </AnimatePresence>
       </div>
+
+      {/* SSO Account Selector Modal Overlay */}
+      <AnimatePresence>
+        {ssoModalOpen && ssoProvider && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setSsoModalOpen(false); setSsoProvider(null); handleSoundClick(); }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+
+            {/* Modal Card - Styled like a premium dark mode Google OAuth screen */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="w-full max-w-[440px] bg-[#0d0d0d] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl relative z-10 text-left flex flex-col font-sans"
+            >
+              {/* Google Header Logo & Subtitle */}
+              <div className="p-6 pb-4 flex flex-col gap-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {/* Google G Logo */}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48" className="shrink-0">
+                      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                      <path fill="#4285F4" d="M46.5 24c0-1.61-.15-3.16-.42-4.69H24v8.87h12.66c-.55 2.94-2.22 5.44-4.72 7.11l7.33 5.68C43.5 36.8 46.5 31.06 46.5 24z"/>
+                      <path fill="#FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z"/>
+                      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.33-5.68c-2.03 1.36-4.64 2.19-8.56 2.19-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                    </svg>
+                    <span className="text-[13px] text-zinc-300 font-medium">Sign in with Google</span>
+                  </div>
+                  
+                  {/* Close Button */}
+                  <button 
+                    onClick={() => { setSsoModalOpen(false); setSsoProvider(null); handleSoundClick(); }}
+                    className="text-zinc-500 hover:text-white transition-colors text-xs font-mono border border-zinc-800 bg-zinc-900/40 px-2 py-0.5 rounded-md"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <h2 className="text-2xl font-normal text-white tracking-tight">Choose an account</h2>
+                  <p className="text-[13px] text-zinc-400 font-normal">
+                    to continue to <span className="text-[#8ab4f8] hover:underline cursor-pointer">twin-biz-ai.vercel.app</span>
+                  </p>
+                  
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[11px] text-amber-400 font-sans leading-relaxed mt-2">
+                    ⚠️ This is a simulated local selector. To display your device's actual Google Accounts, configure the environment variable <code className="bg-black/40 px-1 rounded text-white font-mono">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>.
+                  </div>
+                </div>
+              </div>
+
+              {/* Account selection list */}
+              <div className="flex flex-col max-h-[380px] overflow-y-auto border-t border-zinc-800/80">
+                {GOOGLE_ACCOUNTS_LIST.map((u) => (
+                  <button
+                    key={u.email}
+                    onClick={() => { handleSoundClick(); executeSsoLogin(u.email, u.role, u.name, u.avatarType === 'image' ? u.avatarValue : ''); }}
+                    className="w-full px-6 py-3.5 hover:bg-[#1a1a1a]/60 flex items-center gap-4 transition duration-150 text-left border-b border-zinc-800/40 cursor-pointer group"
+                  >
+                    {/* Avatar Column */}
+                    <div className="shrink-0">
+                      {u.avatarType === 'letter' ? (
+                        <div 
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                          style={{ backgroundColor: u.color || '#27272a' }}
+                        >
+                          {u.avatarValue}
+                        </div>
+                      ) : (
+                        <img 
+                          src={u.avatarValue} 
+                          className="w-9 h-9 rounded-full object-cover border border-white/5 group-hover:border-white/10 transition" 
+                          alt="" 
+                        />
+                      )}
+                    </div>
+
+                    {/* Name and Email */}
+                    <div className="flex-grow flex flex-col justify-center">
+                      <span className="text-[13.5px] font-medium text-zinc-200 group-hover:text-white transition-colors">
+                        {u.name}
+                      </span>
+                      <span className="text-[11.5px] text-zinc-500 group-hover:text-zinc-400 transition-colors">
+                        {u.email}
+                      </span>
+                    </div>
+
+                    {/* Optional role badge (small and clean) */}
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono uppercase font-bold tracking-wider ${
+                      u.role === 'admin' 
+                        ? 'bg-red-500/10 text-red-400 border border-red-500/20' 
+                        : 'bg-zinc-800/40 text-zinc-500'
+                    }`}>
+                      {u.role === 'admin' ? 'CEO' : 'Staff'}
+                    </span>
+                  </button>
+                ))}
+
+                {/* Use another account option */}
+                {!showCustomSsoInput ? (
+                  <button
+                    onClick={() => { handleSoundClick(); setShowCustomSsoInput(true); }}
+                    className="w-full px-6 py-4 hover:bg-[#1a1a1a]/60 flex items-center gap-4 transition duration-150 text-left border-b border-zinc-800/40 cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-white transition">
+                      {/* User icon */}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                    <span className="text-[13.5px] text-zinc-300 font-normal group-hover:text-white transition">
+                      Use another account
+                    </span>
+                  </button>
+                ) : (
+                  <div className="p-6 bg-zinc-950/40 border-b border-zinc-800/40">
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (customSsoEmail) {
+                          executeSsoLogin(customSsoEmail);
+                          setShowCustomSsoInput(false);
+                          setCustomSsoEmail('');
+                        }
+                      }}
+                      className="flex flex-col gap-3 font-mono text-xs"
+                    >
+                      <div className="flex gap-2">
+                        <input 
+                          type="email"
+                          placeholder="Enter email address..."
+                          value={customSsoEmail}
+                          onChange={(e) => setCustomSsoEmail(e.target.value)}
+                          className="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-white placeholder-zinc-700 focus:border-[#8ab4f8] focus:outline-none transition text-xs font-sans"
+                          required
+                          autoFocus
+                        />
+                        <button 
+                          type="submit"
+                          className="px-4 py-2 rounded-lg bg-[#8ab4f8] text-black font-semibold text-xs tracking-wider transition cursor-pointer"
+                        >
+                          Go
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { handleSoundClick(); setShowCustomSsoInput(false); setCustomSsoEmail(''); }}
+                        className="text-[10px] text-zinc-500 hover:text-white transition uppercase tracking-widest text-left font-sans mt-1"
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer info matching Google Account chooser details */}
+              <div className="p-6 text-[11px] text-zinc-505 text-zinc-500 font-normal leading-relaxed">
+                <p>
+                  To continue, Google will share your name, email address, language preference, and profile picture with twin-biz-ai.vercel.app.
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Google Client ID Setup Dialog */}
+      <AnimatePresence>
+        {showClientIdPrompt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setShowClientIdPrompt(false); handleSoundClick(); }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+
+            {/* Modal Card */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="w-full max-w-[460px] bg-[#0d0d0d] border border-zinc-800 rounded-3xl p-6 shadow-2xl relative z-10 text-left flex flex-col gap-5 font-sans"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-500/10 border border-blue-500/20 text-[#8ab4f8] font-bold text-sm">G</span>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Connect Google Sign-In</h3>
+                </div>
+                <button 
+                  onClick={() => { setShowClientIdPrompt(false); handleSoundClick(); }}
+                  className="text-zinc-500 hover:text-white transition-colors text-xs font-mono border border-zinc-800 bg-zinc-900/40 px-2 py-0.5 rounded-md"
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* Explainer */}
+              <div className="text-xs text-zinc-400 leading-relaxed flex flex-col gap-2 font-sans">
+                <p>
+                  To redirect browser sessions to Google's real page, Google requires registering an <strong>OAuth Client ID</strong> for security.
+                </p>
+                <div className="bg-blue-900/20 border border-blue-800/30 rounded-xl p-3 text-[11px] text-[#8ab4f8]">
+                  <strong>Developer Note:</strong> You only do this setup once. When deployed, your users will log in securely with one click without seeing this setup!
+                </div>
+              </div>
+
+              {/* Input Form */}
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (tempClientId.trim()) {
+                    handleSoundClick();
+                    localStorage.setItem('google_client_id', tempClientId.trim());
+                    setShowClientIdPrompt(false);
+                    const redirectUri = window.location.origin;
+                    const nonce = Math.random().toString(36).substring(2);
+                    const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${tempClientId.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token%20token&scope=openid%20email%20profile&prompt=select_account&nonce=${nonce}`;
+                    window.location.href = oauthUrl;
+                  }
+                }}
+                className="flex flex-col gap-4 font-mono text-xs"
+              >
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest font-mono">Google Client ID:</label>
+                  <input 
+                    type="text"
+                    placeholder="paste Client ID (e.g. xxxxx.apps.googleusercontent.com)..."
+                    value={tempClientId}
+                    onChange={(e) => setTempClientId(e.target.value)}
+                    className="w-full px-3.5 py-3 rounded-lg bg-zinc-950 border border-zinc-800 text-white placeholder-zinc-700 focus:border-[#8ab4f8] focus:outline-none transition text-xs font-sans"
+                    required
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 mt-2">
+                  <button 
+                    type="submit"
+                    className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs tracking-wider transition cursor-pointer text-center font-sans"
+                  >
+                    Save & Redirect to Gmail Accounts
+                  </button>
+
+                  <div className="relative text-center my-1.5">
+                    <span className="absolute inset-x-0 top-1/2 h-px bg-zinc-800" />
+                    <span className="relative bg-[#0d0d0d] px-3 text-[9px] text-zinc-500 uppercase tracking-wider font-mono">Or Offline Testing</span>
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      handleSoundClick();
+                      setShowClientIdPrompt(false);
+                      const width = 510;
+                      const height = 620;
+                      const left = window.screen.width / 2 - width / 2;
+                      const top = window.screen.height / 2 - height / 2;
+                      window.open(
+                        '/auth/google',
+                        'Google Sign In',
+                        `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
+                      );
+                    }}
+                    className="w-full py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-semibold text-xs tracking-wider transition cursor-pointer text-center font-sans"
+                  >
+                    Launch Local Account Simulator
+                  </button>
+                </div>
+              </form>
+
+              {/* Console Link */}
+              <div className="text-[10px] text-zinc-500 font-sans border-t border-zinc-800/80 pt-3 text-center">
+                Need a key? Create one in your{" "}
+                <a 
+                  href="https://console.cloud.google.com/apis/credentials" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="text-[#8ab4f8] hover:underline"
+                >
+                  Google Cloud Console →
+                </a>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

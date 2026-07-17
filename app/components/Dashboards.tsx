@@ -2,11 +2,13 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import confetti from 'canvas-confetti';
 import { 
-  Users, Trophy, AlertTriangle, Search, Zap, Check, Upload, Plus, Gift, Sparkles,
-  AlertCircle, CheckCircle2, MessageSquare, Calendar, User as UserIcon
+  Users, Trophy, AlertTriangle, Search, Check, Upload, Plus, Gift, Sparkles,
+  AlertCircle, CheckCircle2, MessageSquare, Calendar, User as UserIcon,
+  TrendingUp, TrendingDown, DollarSign, Percent, Activity, FileText, Lock
 } from 'lucide-react';
-import { User, Task } from '../types';
+import { User, Task, FinancialRecord, ExpenseBreakdown, FinancialSummary } from '../types';
 
 interface ClientProject {
   id: string;
@@ -75,6 +77,7 @@ interface ManagerDashboardProps {
   tasks: Task[];
   setTaskToApprove: (task: Task) => void;
   handleSoundClick: () => void;
+  usersList?: User[];
 }
 
 export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
@@ -94,6 +97,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
   tasks,
   setTaskToApprove,
   handleSoundClick,
+  usersList = [],
 }) => {
   return (
     <div className="w-full max-w-7xl mx-auto px-6 md:px-12 py-8 relative z-20 flex flex-col gap-8 text-left">
@@ -191,8 +195,19 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
                     onChange={(e) => setNewTaskAssignee(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-[#00e5ff]/20 text-white text-xs focus:outline-none"
                   >
-                    <option value="emp-1">Developer Engineer 01</option>
-                    <option value="emp-2">Jordan Sparks</option>
+                    {usersList && usersList.filter(u => u.role?.toLowerCase() === 'employee' || u.role?.toLowerCase() === 'staff').length > 0 ? (
+                      usersList.filter(u => u.role?.toLowerCase() === 'employee' || u.role?.toLowerCase() === 'staff').map(u => (
+                        <option key={u.employeeId || u.id} value={u.employeeId || u.id}>
+                          {u.name} ({u.employeeId || u.id})
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="EMP-001">Developer Engineer 01 (EMP-001)</option>
+                        <option value="EMP-002">Developer Engineer 02 (EMP-002)</option>
+                        <option value="EMP-003">Developer Engineer 03 (EMP-003)</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
@@ -343,8 +358,8 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
 interface CeoDashboardProps {
   currentUser: User;
   setAppState: (state: any) => void;
-  ceoTab: 'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues';
-  setCeoTab: (tab: 'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues') => void;
+  ceoTab: 'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues' | 'analytics' | 'leaderboard';
+  setCeoTab: (tab: 'salaries' | 'clients' | 'attendance' | 'rewards' | 'issues' | 'analytics' | 'leaderboard') => void;
   usersList: User[];
   employeeSearch: string;
   setEmployeeSearch: (val: string) => void;
@@ -356,6 +371,10 @@ interface CeoDashboardProps {
   triggerNotification: (text: string, type: any) => void;
   complaintsList: any[];
   setComplaintsList: React.Dispatch<React.SetStateAction<any[]>>;
+  companyFinancials: FinancialRecord[];
+  expenseBreakdown: ExpenseBreakdown;
+  financialSummary: FinancialSummary;
+  leaderboardList?: any[];
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -376,6 +395,10 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
   triggerNotification,
   complaintsList,
   setComplaintsList,
+  companyFinancials,
+  expenseBreakdown,
+  financialSummary,
+  leaderboardList = [],
 }) => {
   const [rewardTitle, setRewardTitle] = React.useState('');
   const [rewardDesc, setRewardDesc] = React.useState('');
@@ -385,6 +408,9 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
   const [rewardImage, setRewardImage] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [addStatus, setAddStatus] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [timeframe, setTimeframe] = React.useState<'6m' | '12m'>('6m');
+  const [hoveredDataPoint, setHoveredDataPoint] = React.useState<any | null>(null);
+  const [hoveredChart, setHoveredChart] = React.useState<'profit' | 'expenses' | 'growth' | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -551,6 +577,22 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
           }`}
         >
           <span>⚠️ Issues Log</span>
+        </button>
+        <button
+          onClick={() => { setCeoTab('analytics'); handleSoundClick(); }}
+          className={`pb-3 border-b-2 transition relative flex items-center gap-2 ${
+            ceoTab === 'analytics' ? 'border-[#00e5ff] text-[#00e5ff] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <span>📈 Company Graphs</span>
+        </button>
+        <button
+          onClick={() => { setCeoTab('leaderboard'); handleSoundClick(); }}
+          className={`pb-3 border-b-2 transition relative flex items-center gap-2 ${
+            ceoTab === 'leaderboard' ? 'border-[#00e5ff] text-[#00e5ff] font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <span>🏆 Leaderboard</span>
         </button>
       </div>
 
@@ -1238,6 +1280,820 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
           )}
         </motion.div>
       )}
+
+      {ceoTab === 'analytics' && (() => {
+        const filteredData = (companyFinancials && companyFinancials.length > 0 ? companyFinancials : []).slice(timeframe === '6m' ? -6 : -12);
+        
+        const chartWidth = 500;
+        const chartHeight = 220;
+        const padLeft = 60;
+        const padRight = 20;
+        const padTop = 20;
+        const padBottom = 40;
+        const usableWidth = chartWidth - padLeft - padRight;
+        const usableHeight = chartHeight - padTop - padBottom;
+
+        const maxRevenue = Math.max(...filteredData.map(d => d.revenue || 0), 100000);
+        const maxClients = Math.max(...filteredData.map(d => d.clients || 0), 30);
+        const maxGrowth = Math.max(...filteredData.map(d => Math.abs(d.growth || 0)), 10);
+
+        const revPoints = filteredData.map((d, idx) => {
+          const x = padLeft + (idx * usableWidth) / (filteredData.length - 1);
+          const y = padTop + usableHeight - ((d.revenue || 0) / maxRevenue) * usableHeight;
+          return { x, y, data: d };
+        });
+
+        const profitPoints = filteredData.map((d, idx) => {
+          const x = padLeft + (idx * usableWidth) / (filteredData.length - 1);
+          const y = padTop + usableHeight - ((d.profit || 0) / maxRevenue) * usableHeight;
+          return { x, y, data: d };
+        });
+
+        const getLinePath = (points: { x: number; y: number }[]) => {
+          if (points.length === 0) return '';
+          return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        };
+
+        const getAreaPath = (points: { x: number; y: number }[]) => {
+          if (points.length === 0) return '';
+          const linePath = getLinePath(points);
+          const bottomY = padTop + usableHeight;
+          return `${linePath} L ${points[points.length - 1].x} ${bottomY} L ${points[0].x} ${bottomY} Z`;
+        };
+
+        return (
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="w-full flex flex-col gap-8 text-left"
+          >
+            {/* Cyberpunk Financial Stats Ribbon */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="glass-panel p-6 rounded-xl border-[#00e5ff]/20 bg-zinc-950/50 flex items-center justify-between font-mono relative overflow-hidden shadow-[0_0_15px_rgba(0,229,255,0.02)]">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-[#00e5ff]/5 rounded-full blur-2xl pointer-events-none" />
+                <div>
+                  <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold">Total Revenue (YTD)</p>
+                  <h4 className="text-xl font-black text-white mt-1">${financialSummary?.totalRevenueYTD?.toLocaleString() || '1,790,000'}</h4>
+                  <p className="text-[9px] text-[#00e5ff] flex items-center gap-1 mt-1 font-bold">
+                    <TrendingUp size={10} /> +12.4% MoM
+                  </p>
+                </div>
+                <span className="w-8 h-8 rounded-lg bg-zinc-900 border border-[#00e5ff]/30 flex items-center justify-center text-[#00e5ff]">
+                  <DollarSign size={16} />
+                </span>
+              </div>
+
+              <div className="glass-panel p-6 rounded-xl border-red-500/20 bg-zinc-950/50 flex items-center justify-between font-mono relative overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.02)]">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-2xl pointer-events-none" />
+                <div>
+                  <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold">Operating Expenses (YTD)</p>
+                  <h4 className="text-xl font-black text-white mt-1">${financialSummary?.totalExpensesYTD?.toLocaleString() || '1,323,000'}</h4>
+                  <p className="text-[9px] text-red-400 flex items-center gap-1 mt-1 font-bold">
+                    <TrendingUp size={10} /> +3.2% MoM
+                  </p>
+                </div>
+                <span className="w-8 h-8 rounded-lg bg-zinc-900 border border-red-500/30 flex items-center justify-center text-red-500">
+                  <TrendingDown size={16} />
+                </span>
+              </div>
+
+              <div className="glass-panel p-6 rounded-xl border-[#00ff88]/20 bg-zinc-950/50 flex items-center justify-between font-mono relative overflow-hidden shadow-[0_0_15px_rgba(0,255,136,0.02)]">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-[#00ff88]/5 rounded-full blur-2xl pointer-events-none" />
+                <div>
+                  <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold">Net Profit (YTD)</p>
+                  <h4 className="text-xl font-black text-[#00ff88] mt-1">${financialSummary?.totalProfitYTD?.toLocaleString() || '467,000'}</h4>
+                  <p className="text-[9px] text-[#00ff88] flex items-center gap-1 mt-1 font-bold">
+                    <TrendingUp size={10} /> +23.6% MoM
+                  </p>
+                </div>
+                <span className="w-8 h-8 rounded-lg bg-zinc-900 border border-[#00ff88]/30 flex items-center justify-center text-[#00ff88]">
+                  <Trophy size={16} />
+                </span>
+              </div>
+
+              <div className="glass-panel p-6 rounded-xl border-amber-500/20 bg-zinc-950/50 flex items-center justify-between font-mono relative overflow-hidden shadow-[0_0_15px_rgba(245,158,11,0.02)]">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+                <div>
+                  <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold">Growth Velocity Index</p>
+                  <h4 className="text-xl font-black text-white mt-1">{financialSummary?.averageGrowth || '4.8'}% avg</h4>
+                  <p className="text-[9px] text-amber-400 flex items-center gap-1 mt-1 font-bold">
+                    <Activity size={10} /> +8.1% vs last Q
+                  </p>
+                </div>
+                <span className="w-8 h-8 rounded-lg bg-zinc-900 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <Percent size={16} />
+                </span>
+              </div>
+            </div>
+
+            {/* Header Controls */}
+            <div className="glass-panel p-6 rounded-2xl border-white/5 bg-zinc-950/40 relative overflow-hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#00e5ff]/5 rounded-full blur-3xl pointer-events-none" />
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-[#00e5ff] font-mono flex items-center gap-2">
+                  <Activity size={16} className="text-[#00e5ff]" />
+                  Company Financial Telemetry console
+                </h3>
+                <p className="text-[11px] text-zinc-400 font-mono mt-2 leading-relaxed">
+                  Visualizing company profit margins, operational overhead distributions, and client growth velocity metrics.
+                </p>
+              </div>
+              
+              <div className="flex bg-zinc-905 border border-white/5 p-1 rounded-lg self-end sm:self-auto font-mono text-[9px] uppercase tracking-wider font-bold">
+                <button 
+                  onClick={() => { setTimeframe('6m'); handleSoundClick(); }}
+                  className={`px-3 py-1.5 rounded-md transition ${timeframe === '6m' ? 'bg-[#00e5ff] text-black font-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                  6 Month Log
+                </button>
+                <button 
+                  onClick={() => { setTimeframe('12m'); handleSoundClick(); }}
+                  className={`px-3 py-1.5 rounded-md transition ${timeframe === '12m' ? 'bg-[#00e5ff] text-black font-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                  12 Month Log
+                </button>
+              </div>
+            </div>
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full">
+              
+              {/* Chart 1: Profit & Revenue */}
+              <div className="glass-panel p-6 rounded-2xl border-white/5 bg-zinc-950/40 text-left flex flex-col gap-4 relative overflow-hidden shadow-xl">
+                <div>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Profit vs Revenue Telemetry</h4>
+                  <p className="text-[10px] text-zinc-500 font-mono mt-0.5">Area overview of monthly revenues and retained profits (USD)</p>
+                </div>
+
+                <div className="relative w-full h-[220px] bg-zinc-950/30 rounded-xl border border-white/[0.02] flex items-center justify-center p-2">
+                  <svg viewBox="0 0 500 220" className="w-full h-full">
+                    <defs>
+                      <linearGradient id="rev-grad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#00e5ff" stopOpacity={0.15} />
+                        <stop offset="100%" stopColor="#00e5ff" stopOpacity={0.0} />
+                      </linearGradient>
+                      <linearGradient id="profit-grad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#00ff88" stopOpacity={0.15} />
+                        <stop offset="100%" stopColor="#00ff88" stopOpacity={0.0} />
+                      </linearGradient>
+                      <filter id="glow-rev" x="-10%" y="-10%" width="120%" height="120%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                      </filter>
+                    </defs>
+
+                    {/* Grid Lines */}
+                    {[0, 1, 2, 3, 4].map(i => {
+                      const y = 20 + (i * 160) / 4;
+                      return (
+                        <line 
+                          key={i} 
+                          x1="60" 
+                          y1={y} 
+                          x2="480" 
+                          y2={y} 
+                          stroke="white" 
+                          strokeOpacity={0.03} 
+                          strokeDasharray="2 2" 
+                        />
+                      );
+                    })}
+
+                    {/* X Axis Grid Lines */}
+                    {filteredData.map((d, idx) => {
+                      const x = 60 + (idx * 420) / (filteredData.length - 1);
+                      return (
+                        <line 
+                          key={idx} 
+                          x1={x} 
+                          y1="20" 
+                          x2={x} 
+                          y2="180" 
+                          stroke="white" 
+                          strokeOpacity={0.03} 
+                          strokeDasharray="2 2" 
+                        />
+                      );
+                    })}
+
+                    {/* Revenue Area & Line */}
+                    <path 
+                      d={getAreaPath(revPoints)} 
+                      fill="url(#rev-grad)" 
+                    />
+                    <path 
+                      d={getLinePath(revPoints)} 
+                      fill="none" 
+                      stroke="#00e5ff" 
+                      strokeWidth={2} 
+                      filter="url(#glow-rev)"
+                    />
+
+                    {/* Profit Area & Line */}
+                    <path 
+                      d={getAreaPath(profitPoints)} 
+                      fill="url(#profit-grad)" 
+                    />
+                    <path 
+                      d={getLinePath(profitPoints)} 
+                      fill="none" 
+                      stroke="#00ff88" 
+                      strokeWidth={2} 
+                      filter="url(#glow-rev)"
+                    />
+
+                    {/* Interactive Nodes */}
+                    {revPoints.map((p, idx) => (
+                      <g key={idx}>
+                        {/* Revenue point */}
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r={hoveredDataPoint?.month === p.data.month && hoveredChart === 'profit' ? 6 : 3} 
+                          fill="#00e5ff" 
+                          className="cursor-pointer transition-all duration-200"
+                          onMouseEnter={() => {
+                            setHoveredDataPoint(p.data);
+                            setHoveredChart('profit');
+                          }}
+                          onMouseLeave={() => {
+                            setHoveredDataPoint(null);
+                            setHoveredChart(null);
+                          }}
+                        />
+                        {/* Profit point */}
+                        <circle 
+                          cx={profitPoints[idx].x} 
+                          cy={profitPoints[idx].y} 
+                          r={hoveredDataPoint?.month === p.data.month && hoveredChart === 'profit' ? 6 : 3} 
+                          fill="#00ff88" 
+                          className="cursor-pointer transition-all duration-200"
+                          onMouseEnter={() => {
+                            setHoveredDataPoint(p.data);
+                            setHoveredChart('profit');
+                          }}
+                          onMouseLeave={() => {
+                            setHoveredDataPoint(null);
+                            setHoveredChart(null);
+                          }}
+                        />
+                      </g>
+                    ))}
+
+                    {/* Axes labels */}
+                    {/* Y Axis labels */}
+                    {[0, 1, 2, 3, 4].map(i => {
+                      const y = 24 + (i * 160) / 4;
+                      const val = Math.round(maxRevenue - (i * maxRevenue) / 4);
+                      return (
+                        <text 
+                          key={i} 
+                          x="50" 
+                          y={y} 
+                          fill="#52525b" 
+                          fontSize="7" 
+                          fontFamily="monospace" 
+                          textAnchor="end"
+                        >
+                          ${Math.round(val / 1000)}k
+                        </text>
+                      );
+                    })}
+
+                    {/* X Axis Labels */}
+                    {filteredData.map((d, idx) => {
+                      const x = 60 + (idx * 420) / (filteredData.length - 1);
+                      return (
+                        <text 
+                          key={idx} 
+                          x={x} 
+                          y="195" 
+                          fill="#52525b" 
+                          fontSize="7" 
+                          fontFamily="monospace" 
+                          textAnchor="middle"
+                        >
+                          {d.month}
+                        </text>
+                      );
+                    })}
+                  </svg>
+
+                  {/* Custom Tooltip */}
+                  {hoveredDataPoint && hoveredChart === 'profit' && (
+                    <div className="absolute top-3 right-3 glass-panel p-3 rounded-lg border-[#00e5ff]/20 bg-zinc-950/95 font-mono text-[9px] flex flex-col gap-1 shadow-2xl z-30 pointer-events-none w-40 text-left">
+                      <p className="text-white font-bold border-b border-white/5 pb-1 uppercase">{hoveredDataPoint.month} audit</p>
+                      <p className="text-[#00e5ff] flex justify-between"><span>Revenue:</span> <span>${hoveredDataPoint.revenue?.toLocaleString()}</span></p>
+                      <p className="text-red-400 flex justify-between"><span>Expenses:</span> <span>${hoveredDataPoint.expenses?.toLocaleString()}</span></p>
+                      <p className="text-[#00ff88] flex justify-between font-bold"><span>Net Profit:</span> <span>${hoveredDataPoint.profit?.toLocaleString()}</span></p>
+                      <p className="text-zinc-500 flex justify-between border-t border-white/5 pt-1"><span>Margin:</span> <span>{Math.round((hoveredDataPoint.profit / hoveredDataPoint.revenue) * 100)}%</span></p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Legend */}
+                <div className="flex gap-4 font-mono text-[8px] uppercase tracking-wider font-bold">
+                  <span className="flex items-center gap-1.5 text-[#00e5ff]"><span className="w-2.5 h-1 bg-[#00e5ff] rounded" /> Revenue</span>
+                  <span className="flex items-center gap-1.5 text-[#00ff88]"><span className="w-2.5 h-1 bg-[#00ff88] rounded" /> Net Profit</span>
+                </div>
+              </div>
+
+              {/* Chart 2: Expenses Breakdown */}
+              <div className="glass-panel p-6 rounded-2xl border-white/5 bg-zinc-950/40 text-left flex flex-col gap-4 relative overflow-hidden shadow-xl">
+                <div>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Operating Expenses Composition</h4>
+                  <p className="text-[10px] text-zinc-500 font-mono mt-0.5">Stacked telemetry of salaries, infrastructure, and marketing overhead</p>
+                </div>
+
+                <div className="relative w-full h-[220px] bg-zinc-950/30 rounded-xl border border-white/[0.02] flex items-center justify-center p-2">
+                  <svg viewBox="0 0 500 220" className="w-full h-full">
+                    {/* Grid Lines */}
+                    {[0, 1, 2, 3, 4].map(i => {
+                      const y = 20 + (i * 160) / 4;
+                      return (
+                        <line 
+                          key={i} 
+                          x1="60" 
+                          y1={y} 
+                          x2="480" 
+                          y2={y} 
+                          stroke="white" 
+                          strokeOpacity={0.03} 
+                          strokeDasharray="2 2" 
+                        />
+                      );
+                    })}
+
+                    {/* Draw Stacked Bars */}
+                    {filteredData.map((d, idx) => {
+                      const xCenter = 60 + (idx * 420) / (filteredData.length - 1);
+                      const barWidth = timeframe === '6m' ? 18 : 10;
+                      
+                      const salariesVal = d.breakdown?.salaries || 78000;
+                      const infraVal = d.breakdown?.infrastructure || 15000;
+                      const marketingVal = d.breakdown?.marketing || 12000;
+                      const softwareVal = d.breakdown?.software || 8000;
+                      const miscVal = d.breakdown?.misc || 5000;
+
+                      const total = salariesVal + infraVal + marketingVal + softwareVal + miscVal;
+                      const scaleFactor = 160 / maxRevenue;
+
+                      const salH = salariesVal * scaleFactor;
+                      const infH = infraVal * scaleFactor;
+                      const marH = marketingVal * scaleFactor;
+                      const softH = softwareVal * scaleFactor;
+                      const misH = miscVal * scaleFactor;
+
+                      const ySal = 180 - salH;
+                      const yInf = ySal - infH;
+                      const yMar = yInf - marH;
+                      const ySoft = yMar - softH;
+                      const yMis = ySoft - misH;
+
+                      return (
+                        <g 
+                          key={idx}
+                          className="cursor-pointer"
+                          onMouseEnter={() => {
+                            setHoveredDataPoint(d);
+                            setHoveredChart('expenses');
+                          }}
+                          onMouseLeave={() => {
+                            setHoveredDataPoint(null);
+                            setHoveredChart(null);
+                          }}
+                        >
+                          {/* Salaries */}
+                          <rect x={xCenter - barWidth/2} y={ySal} width={barWidth} height={salH} fill="#00ff88" fillOpacity={0.75} rx={1} />
+                          {/* Infra */}
+                          <rect x={xCenter - barWidth/2} y={yInf} width={barWidth} height={infH} fill="#8b5cf6" fillOpacity={0.75} rx={1} />
+                          {/* Marketing */}
+                          <rect x={xCenter - barWidth/2} y={yMar} width={barWidth} height={marH} fill="#f59e0b" fillOpacity={0.75} rx={1} />
+                          {/* Software */}
+                          <rect x={xCenter - barWidth/2} y={ySoft} width={barWidth} height={softH} fill="#00e5ff" fillOpacity={0.75} rx={1} />
+                          {/* Misc */}
+                          <rect x={xCenter - barWidth/2} y={yMis} width={barWidth} height={misH} fill="#ef4444" fillOpacity={0.75} rx={1} />
+                        </g>
+                      );
+                    })}
+
+                    {/* Y Axis labels */}
+                    {[0, 1, 2, 3, 4].map(i => {
+                      const y = 24 + (i * 160) / 4;
+                      const val = Math.round(maxRevenue - (i * maxRevenue) / 4);
+                      return (
+                        <text 
+                          key={i} 
+                          x="50" 
+                          y={y} 
+                          fill="#52525b" 
+                          fontSize="7" 
+                          fontFamily="monospace" 
+                          textAnchor="end"
+                        >
+                          ${Math.round(val / 1000)}k
+                        </text>
+                      );
+                    })}
+
+                    {/* X Axis Labels */}
+                    {filteredData.map((d, idx) => {
+                      const x = 60 + (idx * 420) / (filteredData.length - 1);
+                      return (
+                        <text 
+                          key={idx} 
+                          x={x} 
+                          y="195" 
+                          fill="#52525b" 
+                          fontSize="7" 
+                          fontFamily="monospace" 
+                          textAnchor="middle"
+                        >
+                          {d.month}
+                        </text>
+                      );
+                    })}
+                  </svg>
+
+                  {/* Custom Tooltip */}
+                  {hoveredDataPoint && hoveredChart === 'expenses' && (
+                    <div className="absolute top-3 right-3 glass-panel p-3 rounded-lg border-[#00e5ff]/20 bg-zinc-950/95 font-mono text-[9px] flex flex-col gap-1 shadow-2xl z-30 pointer-events-none w-48 text-left">
+                      <p className="text-white font-bold border-b border-white/5 pb-1 uppercase">{hoveredDataPoint.month} cost breakdown</p>
+                      <p className="text-[#00ff88] flex justify-between"><span>Salaries:</span> <span>${hoveredDataPoint.breakdown?.salaries?.toLocaleString() || '82,000'}</span></p>
+                      <p className="text-purple-400 flex justify-between"><span>Infrastructure:</span> <span>${hoveredDataPoint.breakdown?.infrastructure?.toLocaleString() || '21,000'}</span></p>
+                      <p className="text-amber-400 flex justify-between"><span>Marketing:</span> <span>${hoveredDataPoint.breakdown?.marketing?.toLocaleString() || '15,000'}</span></p>
+                      <p className="text-[#00e5ff] flex justify-between"><span>SaaS/Software:</span> <span>${hoveredDataPoint.breakdown?.software?.toLocaleString() || '9,000'}</span></p>
+                      <p className="text-red-400 flex justify-between"><span>Operations/Misc:</span> <span>${hoveredDataPoint.breakdown?.misc?.toLocaleString() || '5,000'}</span></p>
+                      <p className="text-white flex justify-between border-t border-white/5 pt-1 font-bold"><span>Total Expenses:</span> <span>${hoveredDataPoint.expenses?.toLocaleString()}</span></p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Legend */}
+                <div className="flex flex-wrap gap-x-4 gap-y-2 font-mono text-[8px] uppercase tracking-wider font-bold">
+                  <span className="flex items-center gap-1.5 text-[#00ff88]"><span className="w-2.5 h-2.5 bg-[#00ff88] rounded" /> Salaries</span>
+                  <span className="flex items-center gap-1.5 text-purple-400"><span className="w-2.5 h-2.5 bg-[#8b5cf6] rounded" /> Cloud/Infra</span>
+                  <span className="flex items-center gap-1.5 text-amber-400"><span className="w-2.5 h-2.5 bg-[#f59e0b] rounded" /> Marketing</span>
+                  <span className="flex items-center gap-1.5 text-[#00e5ff]"><span className="w-2.5 h-2.5 bg-[#00e5ff] rounded" /> SaaS/Software</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Chart 3: Company Growth & Clients */}
+            <div className="glass-panel p-6 rounded-2xl border-white/5 bg-zinc-950/40 text-left flex flex-col gap-4 relative overflow-hidden shadow-xl lg:col-span-2">
+              <div>
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Company Growth Velocity & Client Node Index</h4>
+                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">Dual-axis overview tracking monthly client integrations against month-over-month revenue growth percentage</p>
+              </div>
+
+              <div className="relative w-full h-[220px] bg-zinc-950/30 rounded-xl border border-white/[0.02] flex items-center justify-center p-2">
+                <svg viewBox="0 0 1000 220" className="w-full h-full">
+                  <defs>
+                    <linearGradient id="client-grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#00e5ff" stopOpacity={0.12} />
+                      <stop offset="100%" stopColor="#00e5ff" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Grid Lines */}
+                  {[0, 1, 2, 3, 4].map(i => {
+                    const y = 20 + (i * 160) / 4;
+                    return (
+                      <line 
+                        key={i} 
+                        x1="60" 
+                        y1={y} 
+                        x2="940" 
+                        y2={y} 
+                        stroke="white" 
+                        strokeOpacity={0.03} 
+                        strokeDasharray="2 2" 
+                      />
+                    );
+                  })}
+
+                  {/* Draw Client Nodes Area */}
+                  <path 
+                    d={getAreaPath(filteredData.map((d, idx) => {
+                      const x = 60 + (idx * 880) / (filteredData.length - 1);
+                      const y = 20 + 160 - ((d.clients || 0) / maxClients) * 160;
+                      return { x, y };
+                    }))} 
+                    fill="url(#client-grad)" 
+                  />
+                  <path 
+                    d={getLinePath(filteredData.map((d, idx) => {
+                      const x = 60 + (idx * 880) / (filteredData.length - 1);
+                      const y = 20 + 160 - ((d.clients || 0) / maxClients) * 160;
+                      return { x, y };
+                    }))} 
+                    fill="none" 
+                    stroke="#00e5ff" 
+                    strokeWidth={2} 
+                  />
+
+                  {/* Draw Growth Rate Line */}
+                  <path 
+                    d={getLinePath(filteredData.map((d, idx) => {
+                      const x = 60 + (idx * 880) / (filteredData.length - 1);
+                      const y = 20 + 160 - ((d.growth || 0) / maxGrowth) * 160;
+                      return { x, y };
+                    }))} 
+                    fill="none" 
+                    stroke="#f59e0b" 
+                    strokeWidth={2} 
+                    strokeDasharray="3 3" 
+                  />
+
+                  {/* Interactive Nodes */}
+                  {filteredData.map((d, idx) => {
+                    const x = 60 + (idx * 880) / (filteredData.length - 1);
+                    const yClient = 20 + 160 - ((d.clients || 0) / maxClients) * 160;
+                    const yGrowth = 20 + 160 - ((d.growth || 0) / maxGrowth) * 160;
+                    
+                    return (
+                      <g key={idx}>
+                        <circle 
+                          cx={x} 
+                          cy={yClient} 
+                          r={hoveredDataPoint?.month === d.month && hoveredChart === 'growth' ? 5 : 2.5} 
+                          fill="#00e5ff" 
+                          className="cursor-pointer"
+                          onMouseEnter={() => {
+                            setHoveredDataPoint(d);
+                            setHoveredChart('growth');
+                          }}
+                          onMouseLeave={() => {
+                            setHoveredDataPoint(null);
+                            setHoveredChart(null);
+                          }}
+                        />
+                        <circle 
+                          cx={x} 
+                          cy={yGrowth} 
+                          r={hoveredDataPoint?.month === d.month && hoveredChart === 'growth' ? 5 : 2.5} 
+                          fill="#f59e0b" 
+                          className="cursor-pointer"
+                          onMouseEnter={() => {
+                            setHoveredDataPoint(d);
+                            setHoveredChart('growth');
+                          }}
+                          onMouseLeave={() => {
+                            setHoveredDataPoint(null);
+                            setHoveredChart(null);
+                          }}
+                        />
+                      </g>
+                    );
+                  })}
+
+                  {/* Left Y-Axis labels (Clients) */}
+                  {[0, 1, 2, 3, 4].map(i => {
+                    const y = 24 + (i * 160) / 4;
+                    const val = Math.round(maxClients - (i * maxClients) / 4);
+                    return (
+                      <text 
+                        key={i} 
+                        x="50" 
+                        y={y} 
+                        fill="#52525b" 
+                        fontSize="7" 
+                        fontFamily="monospace" 
+                        textAnchor="end"
+                      >
+                        {val} Nodes
+                      </text>
+                    );
+                  })}
+
+                  {/* Right Y-Axis labels (Growth) */}
+                  {[0, 1, 2, 3, 4].map(i => {
+                    const y = 24 + (i * 160) / 4;
+                    const val = (maxGrowth - (i * maxGrowth) / 4).toFixed(1);
+                    return (
+                      <text 
+                        key={i} 
+                        x="950" 
+                        y={y} 
+                        fill="#52525b" 
+                        fontSize="7" 
+                        fontFamily="monospace" 
+                        textAnchor="start"
+                      >
+                        +{val}%
+                      </text>
+                    );
+                  })}
+
+                  {/* X Axis Labels */}
+                  {filteredData.map((d, idx) => {
+                    const x = 60 + (idx * 880) / (filteredData.length - 1);
+                    return (
+                      <text 
+                        key={idx} 
+                        x={x} 
+                        y="195" 
+                        fill="#52525b" 
+                        fontSize="7" 
+                        fontFamily="monospace" 
+                        textAnchor="middle"
+                      >
+                        {d.month}
+                      </text>
+                    );
+                  })}
+                </svg>
+
+                {/* Custom Tooltip */}
+                {hoveredDataPoint && hoveredChart === 'growth' && (
+                  <div className="absolute top-3 right-3 glass-panel p-3 rounded-lg border-[#00e5ff]/20 bg-zinc-950/95 font-mono text-[9px] flex flex-col gap-1 shadow-2xl z-30 pointer-events-none w-48 text-left">
+                    <p className="text-white font-bold border-b border-white/5 pb-1 uppercase">{hoveredDataPoint.month} scale stats</p>
+                    <p className="text-[#00e5ff] flex justify-between"><span>Active Clients:</span> <span>{hoveredDataPoint.clients} Nodes</span></p>
+                    <p className="text-amber-400 flex justify-between font-bold"><span>MoM Revenue Growth:</span> <span>+{hoveredDataPoint.growth}%</span></p>
+                    <p className="text-zinc-500 flex justify-between border-t border-white/5 pt-1"><span>Net Profit Yield:</span> <span>${hoveredDataPoint.profit?.toLocaleString()}</span></p>
+                  </div>
+                )}
+              </div>
+
+              {/* Legend */}
+              <div className="flex gap-4 font-mono text-[8px] uppercase tracking-wider font-bold">
+                <span className="flex items-center gap-1.5 text-[#00e5ff]"><span className="w-2.5 h-1 bg-[#00e5ff] rounded" /> Active Client Nodes</span>
+                <span className="flex items-center gap-1.5 text-amber-400"><span className="w-2.5 h-1.5 border-t border-dashed border-[#f59e0b]" /> Revenue Growth (%)</span>
+              </div>
+            </div>
+
+            {/* Expense Distribution Details & Executive Report Action */}
+            <div className="glass-panel p-8 rounded-2xl border-white/5 bg-zinc-950/40 text-left flex flex-col gap-6 relative overflow-hidden shadow-2xl lg:col-span-2">
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.005)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.005)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none opacity-50" />
+              
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-white/5 pb-6 relative z-10">
+                <div>
+                  <h3 className="text-base font-bold text-white uppercase tracking-wider font-sans">Corporate Cost Distribution Audit</h3>
+                  <p className="text-xs text-zinc-500 mt-1 font-mono">Current distribution of expenses across operational departments.</p>
+                </div>
+                
+                <button 
+                  onClick={() => {
+                    confetti({
+                      particleCount: 150,
+                      spread: 80,
+                      origin: { y: 0.6 },
+                      colors: ['#00e5ff', '#00ff88', '#8b5cf6', '#f59e0b']
+                    });
+                    triggerNotification('Executive Financial Audit Report compiled & encrypted successfully.', 'success');
+                    handleSoundClick();
+                  }}
+                  className="px-4 py-2.5 rounded-lg bg-[#00e5ff] hover:bg-white text-black font-black font-mono text-[9px] tracking-widest uppercase transition shadow-[0_0_15px_rgba(0,229,255,0.15)] flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+                >
+                  <FileText size={12} /> Compile Audit Report
+                </button>
+              </div>
+
+              {/* Progress bars list representing breakdown */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 font-mono text-xs">
+                <div className="flex flex-col gap-4">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Departmental Shares</h4>
+                  
+                  {/* Salaries */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between text-zinc-400">
+                      <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[#00ff88] rounded-full" /> Salaries & Payroll</span>
+                      <span className="text-white font-bold">${expenseBreakdown?.salaries?.toLocaleString() || '82,000'} ({Math.round(( (expenseBreakdown?.salaries || 82000) / ((expenseBreakdown?.salaries || 82000) + (expenseBreakdown?.infrastructure || 21000) + (expenseBreakdown?.marketing || 15000) + (expenseBreakdown?.software || 9000) + (expenseBreakdown?.misc || 5000))) * 100)}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-900 border border-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#00ff88]" style={{ width: `${((expenseBreakdown?.salaries || 82000) / ((expenseBreakdown?.salaries || 82000) + (expenseBreakdown?.infrastructure || 21000) + (expenseBreakdown?.marketing || 15000) + (expenseBreakdown?.software || 9000) + (expenseBreakdown?.misc || 5000))) * 100}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Cloud/Infra */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between text-zinc-400">
+                      <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[#8b5cf6] rounded-full" /> Cloud & Bare-metal Infrastructure</span>
+                      <span className="text-white font-bold">${expenseBreakdown?.infrastructure?.toLocaleString() || '21,000'} ({Math.round(((expenseBreakdown?.infrastructure || 21000) / ((expenseBreakdown?.salaries || 82000) + (expenseBreakdown?.infrastructure || 21000) + (expenseBreakdown?.marketing || 15000) + (expenseBreakdown?.software || 9000) + (expenseBreakdown?.misc || 5000))) * 100)}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-900 border border-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#8b5cf6]" style={{ width: `${((expenseBreakdown?.infrastructure || 21000) / ((expenseBreakdown?.salaries || 82000) + (expenseBreakdown?.infrastructure || 21000) + (expenseBreakdown?.marketing || 15000) + (expenseBreakdown?.software || 9000) + (expenseBreakdown?.misc || 5000))) * 100}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Marketing */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between text-zinc-400">
+                      <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[#f59e0b] rounded-full" /> Growth & Marketing Telemetry</span>
+                      <span className="text-white font-bold">${expenseBreakdown?.marketing?.toLocaleString() || '15,000'} ({Math.round(((expenseBreakdown?.marketing || 15000) / ((expenseBreakdown?.salaries || 82000) + (expenseBreakdown?.infrastructure || 21000) + (expenseBreakdown?.marketing || 15000) + (expenseBreakdown?.software || 9000) + (expenseBreakdown?.misc || 5000))) * 100)}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-900 border border-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#f59e0b]" style={{ width: `${((expenseBreakdown?.marketing || 15000) / ((expenseBreakdown?.salaries || 82000) + (expenseBreakdown?.infrastructure || 21000) + (expenseBreakdown?.marketing || 15000) + (expenseBreakdown?.software || 9000) + (expenseBreakdown?.misc || 5000))) * 100}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Software SaaS */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between text-zinc-400">
+                      <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[#00e5ff] rounded-full" /> SaaS & Software Licences</span>
+                      <span className="text-white font-bold">${expenseBreakdown?.software?.toLocaleString() || '9,000'} ({Math.round(((expenseBreakdown?.software || 9000) / ((expenseBreakdown?.salaries || 82000) + (expenseBreakdown?.infrastructure || 21000) + (expenseBreakdown?.marketing || 15000) + (expenseBreakdown?.software || 9000) + (expenseBreakdown?.misc || 5000))) * 100)}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-900 border border-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#00e5ff]" style={{ width: `${((expenseBreakdown?.software || 9000) / ((expenseBreakdown?.salaries || 82000) + (expenseBreakdown?.infrastructure || 21000) + (expenseBreakdown?.marketing || 15000) + (expenseBreakdown?.software || 9000) + (expenseBreakdown?.misc || 5000))) * 100}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col justify-between border-t md:border-t-0 md:border-l border-white/5 pt-6 md:pt-0 md:pl-8">
+                  <div>
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-3">Retained Profit Margin Summary</h4>
+                    <div className="p-4 rounded-xl border border-[#00ff88]/10 bg-[#00ff88]/[0.01] flex items-center justify-between">
+                      <div>
+                        <p className="text-[9px] text-zinc-500 uppercase font-bold">Annual Margin Index</p>
+                        <h4 className="text-2xl font-black text-[#00ff88] mt-1">
+                          {financialSummary?.totalRevenueYTD ? Math.round((financialSummary.totalProfitYTD / financialSummary.totalRevenueYTD) * 100) : 26}%
+                        </h4>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[8px] text-zinc-500 uppercase font-bold">MoM Yield</p>
+                        <span className="text-[9px] font-bold text-white bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded flex items-center gap-1 mt-1 justify-end">
+                          <TrendingUp size={9} /> STABLE
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 text-[10px] text-zinc-500 leading-relaxed bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+                    <p className="font-bold text-zinc-400 uppercase text-[9px] tracking-wider mb-1 flex items-center gap-1.5 text-[#00e5ff]">
+                      <Lock size={10} /> Cryptographic Telemetry Node
+                    </p>
+                    All financial indicators are computed on-chain and hashed locally. The system stress factor is verified automatically before compounding ledger updates.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </motion.div>
+        );
+      })()}
+
+      {/* Leaderboard Tab */}
+      {ceoTab === 'leaderboard' && (
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="flex flex-col gap-6 w-full max-w-4xl mx-auto"
+        >
+          <div className="glass-panel p-8 rounded-2xl border-[#00e5ff]/25 bg-zinc-950/40">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-white font-mono">🏆 Leaderboard Standings</h3>
+                <p className="text-[11px] text-zinc-500 font-mono mt-1">Real-time organizational performance ranking by computed telemetry XP weight.</p>
+              </div>
+              <Trophy className="text-[#00e5ff] drop-shadow-[0_0_8px_rgba(0,229,255,0.4)]" size={20} />
+            </div>
+
+            <div className="space-y-4">
+              {leaderboardList.map((lead: any, index: number) => (
+                <div 
+                  key={lead.id || index} 
+                  className={`flex items-center justify-between p-4 rounded-xl border transition duration-300 ${
+                    lead.role === 'admin' || lead.role === 'Admin'
+                      ? 'bg-purple-500/10 border-purple-500/30' 
+                      : 'bg-zinc-950/30 border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className={`text-xs font-mono font-bold w-6 ${
+                      index === 0 ? 'text-[#00e5ff]' : index === 1 ? 'text-purple-400' : 'text-zinc-500'
+                    }`}>
+                      #0{index + 1}
+                    </span>
+                    <img 
+                      src={lead.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'} 
+                      className="w-10 h-10 rounded-full object-cover border border-zinc-800" 
+                      alt="" 
+                    />
+                    <div>
+                      <p className="text-sm font-bold text-white flex items-center gap-2">
+                        {lead.name}
+                        {(lead.role === 'admin' || lead.role === 'Admin') && (
+                          <span className="text-[8px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded uppercase font-mono font-bold">CEO</span>
+                        )}
+                      </p>
+                      <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-mono mt-0.5">{lead.department || 'Engineering'}</p>
+                    </div>
+                  </div>
+
+                  <div className="text-right font-mono">
+                    <p className="text-sm font-bold text-white">{lead.xp} XP</p>
+                    <p className="text-[9px] text-zinc-500 mt-0.5">LVL {lead.level}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
     </div>
   );
 };

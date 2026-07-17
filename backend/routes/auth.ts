@@ -194,17 +194,25 @@ router.post('/google-login', async (req: Request, res: Response): Promise<any> =
 
   try {
     // 1. Verify ID Token using Google tokeninfo API
+    const expectedClientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '547514809228-kgg4h76v9q8mop43o8lqpe4o6oasv652.apps.googleusercontent.com';
+    console.log(`[Google OAuth] Verifying token. Configured expected Client ID: ${expectedClientId}`);
+    
     const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
     if (!googleRes.ok) {
-      return res.status(400).json({ error: 'Google token verification failed.' });
+      const errText = await googleRes.text();
+      console.error(`[Google OAuth] Token verification failed with status ${googleRes.status}: ${errText}`);
+      return res.status(400).json({ 
+        error: 'Google token verification failed.',
+        details: `Google tokeninfo status ${googleRes.status}: ${errText}`
+      });
     }
 
     const payload = await googleRes.json();
+    console.log(`[Google OAuth] Token verified successfully. payload.aud=${payload.aud}, payload.email=${payload.email}`);
     
     // Verify audience to prevent token spoofing
-    const expectedClientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '547514809228-kgg4h76v9q8mop43o8lqpe4o6oasv652.apps.googleusercontent.com';
     if (payload.aud && expectedClientId && payload.aud !== expectedClientId) {
-      console.warn(`Audience mismatch. Token aud: ${payload.aud}, Expected: ${expectedClientId}`);
+      console.warn(`[Google OAuth] Audience mismatch! Token aud: ${payload.aud}, Expected: ${expectedClientId}`);
     }
 
     const { email, name, picture, sub: googleId } = payload;

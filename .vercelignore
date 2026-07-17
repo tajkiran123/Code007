@@ -1,0 +1,12 @@
+# Allow Vercel to upload backend files and compiled dist folder
+!backend/
+!backend/dist/
+
+# Ignore other directories
+mobile/
+scratch/
+.qodo/
+DEMO_GUIDE.md
+PITCH_DECK.md
+GOOGLE_AUTH_SETUP.md
+Dockerfile

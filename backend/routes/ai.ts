@@ -9,6 +9,12 @@ import Department from '../models/Department';
 
 const router = Router();
 
+// Global in-memory fallback for complaints when MongoDB is offline
+let mockComplaintsDb = [
+  { _id: '1', id: '1', userName: 'Developer Engineer 01', text: 'Slow loading times on the dev environment.', status: 'pending', createdAt: new Date(Date.now() - 3600000).toISOString() },
+  { _id: '2', id: '2', userName: 'Developer Engineer 02', text: 'Telemetry metrics missing for Cloud project.', status: 'reviewed', createdAt: new Date(Date.now() - 7200000).toISOString() }
+];
+
 // Initialize Gemini Client
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || '';
 const genAI = GOOGLE_API_KEY ? new GoogleGenerativeAI(GOOGLE_API_KEY) : null;
@@ -82,6 +88,17 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
           reply: "🚨 TELEMETRY ERROR: Issue description text block is empty." 
         });
       }
+
+      // Always store in-memory fallback to support offline queries
+      const mockId = 'mock_' + Math.floor(Math.random() * 100000);
+      mockComplaintsDb.unshift({
+        _id: mockId,
+        id: mockId,
+        userName: user?.name || 'Developer Engineer 01',
+        text: complaintText,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
 
       if (isDbConnected) {
         try {
@@ -758,11 +775,8 @@ router.get('/complaints', async (req: Request, res: Response): Promise<any> => {
       const complaints = await Complaint.find().sort({ createdAt: -1 });
       return res.json(complaints);
     } else {
-      // Mock fallback complaints
-      return res.json([
-        { id: '1', userName: 'Developer Engineer 01', text: 'Slow loading times on the dev environment.', status: 'pending', createdAt: new Date(Date.now() - 3600000).toISOString() },
-        { id: '2', userName: 'Developer Engineer 02', text: 'Telemetry metrics missing for Cloud project.', status: 'reviewed', createdAt: new Date(Date.now() - 7200000).toISOString() }
-      ]);
+      // Mock fallback complaints (includes user's logged complaints while offline)
+      return res.json(mockComplaintsDb);
     }
   } catch (err) {
     console.error('Failed to get complaints', err);
@@ -775,6 +789,11 @@ router.get('/complaints', async (req: Request, res: Response): Promise<any> => {
 router.put('/complaints/:id/resolve', async (req: Request, res: Response): Promise<any> => {
   try {
     const isDbConnected = mongoose.connection.readyState === 1;
+    // Always update the in-memory array to keep it in sync
+    mockComplaintsDb = mockComplaintsDb.map(c => 
+      (c._id === req.params.id || c.id === req.params.id) ? { ...c, status: 'resolved' } : c
+    );
+
     if (isDbConnected) {
       const complaint = await Complaint.findByIdAndUpdate(req.params.id, { status: 'resolved' }, { new: true });
       return res.json(complaint);

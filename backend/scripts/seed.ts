@@ -136,19 +136,17 @@ const seedDatabase = async () => {
     console.log('🔑 Hashing password node...');
     const passwordHash = await bcrypt.hash('Password123!', 10);
 
-    const usersToInsert = [];
-
-    // 1. Generate 1 Admin
-    for (let i = 1; i <= 1; i++) {
-      usersToInsert.push({
-        name: `Admin Commander 0${i}`,
-        email: `admin0${i}@workquest.ai`,
+    const usersToInsert = [
+      // CEO
+      {
+        name: 'John Anderson',
+        email: 'admin01@workquest.ai',
         passwordHash,
         role: 'Admin',
-        department: 'DevOps',
-        employeeId: `ADM-00${i}`,
-        phone: `+155500000${i}`,
-        avatar: `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&q=80`,
+        department: 'Executive',
+        employeeId: 'CEO001',
+        phone: '+1555000001',
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&q=80',
         xp: 5000,
         level: 5,
         status: 'active',
@@ -158,22 +156,19 @@ const seedDatabase = async () => {
         completedTasksCount: 42,
         pendingTasksCount: 0,
         commitsCount: 154,
-        location: 'San Francisco, CA'
-      });
-    }
-
-    // 2. Generate 2 Managers
-    for (let i = 1; i <= 2; i++) {
-      const dept = DEPARTMENTS[(i - 1) % DEPARTMENTS.length];
-      usersToInsert.push({
-        name: `Manager Leader 0${i}`,
-        email: `manager0${i}@workquest.ai`,
+        location: 'San Francisco, CA',
+        salary: '$180,000'
+      },
+      // Manager 1
+      {
+        name: 'Sarah Johnson',
+        email: 'manager01@workquest.ai',
         passwordHash,
         role: 'Manager',
-        department: dept.name,
-        employeeId: `MGR-00${i}`,
-        phone: `+155510000${i}`,
-        avatar: `https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&q=80`,
+        department: 'Engineering',
+        employeeId: 'MGR001',
+        phone: '+1555100001',
+        avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&q=80',
         xp: 4000,
         level: 4,
         status: 'active',
@@ -183,45 +178,256 @@ const seedDatabase = async () => {
         completedTasksCount: 30,
         pendingTasksCount: 2,
         commitsCount: 120,
-        location: 'New York, NY'
-      });
-    }
-
-    // 3. Generate 20 Employees
-    const employeeAvatars = [
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-      'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-      'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=150',
-      'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150'
-    ];
-
-    for (let i = 1; i <= 5; i++) {
-      const dept = DEPARTMENTS[i % DEPARTMENTS.length];
-      const xp = 500 + Math.floor(Math.random() * 2500);
-      const level = Math.floor(xp / 1000) + 1;
-      usersToInsert.push({
-        name: `Developer Engineer 0${i}`,
-        email: `employee${i}@workquest.ai`,
+        location: 'New York, NY',
+        salary: '$145,000',
+        managerId: 'CEO001'
+      },
+      // Manager 2
+      {
+        name: 'Michael Lee',
+        email: 'manager02@workquest.ai',
+        passwordHash,
+        role: 'Manager',
+        department: 'Marketing',
+        employeeId: 'MGR002',
+        phone: '+1555100002',
+        avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&q=80',
+        xp: 4000,
+        level: 4,
+        status: 'active',
+        attendance: 98,
+        performanceScore: 9.2,
+        burnoutScore: 12,
+        completedTasksCount: 30,
+        pendingTasksCount: 2,
+        commitsCount: 120,
+        location: 'New York, NY',
+        salary: '$140,000',
+        managerId: 'CEO001'
+      },
+      // Sarah Johnson's employees
+      {
+        name: 'Alex Carter',
+        email: 'employee1@workquest.ai',
         passwordHash,
         role: 'Employee',
-        department: dept.name,
-        employeeId: `EMP-0${i < 10 ? '0' : ''}${i}`,
-        phone: `+155520000${i}`,
-        avatar: employeeAvatars[i % employeeAvatars.length],
-        xp,
-        level,
+        department: 'Engineering',
+        employeeId: 'EMP001',
+        phone: '+1555200001',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        xp: 3420,
+        level: 4,
         status: 'active',
-        attendance: 88 + Math.floor(Math.random() * 12),
-        performanceScore: Number((6.5 + Math.random() * 3.5).toFixed(1)),
-        burnoutScore: Math.floor(10 + Math.random() * 75),
-        completedTasksCount: 5 + Math.floor(Math.random() * 25),
-        pendingTasksCount: 1 + Math.floor(Math.random() * 5),
-        commitsCount: 30 + Math.floor(Math.random() * 150),
-        location: i % 2 === 0 ? 'Remote' : 'Austin, TX'
-      });
-    }
+        attendance: 96,
+        performanceScore: 8.8,
+        burnoutScore: 15,
+        completedTasksCount: 18,
+        pendingTasksCount: 1,
+        commitsCount: 95,
+        location: 'Austin, TX',
+        salary: '$115,000',
+        managerId: 'MGR001'
+      },
+      {
+        name: 'Emma Wilson',
+        email: 'employee2@workquest.ai',
+        passwordHash,
+        role: 'Employee',
+        department: 'Engineering',
+        employeeId: 'EMP002',
+        phone: '+1555200002',
+        avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
+        xp: 1900,
+        level: 2,
+        status: 'active',
+        attendance: 92,
+        performanceScore: 7.9,
+        burnoutScore: 45,
+        completedTasksCount: 12,
+        pendingTasksCount: 2,
+        commitsCount: 65,
+        location: 'Remote',
+        salary: '$110,000',
+        managerId: 'MGR001'
+      },
+      {
+        name: 'Daniel Brown',
+        email: 'employee3@workquest.ai',
+        passwordHash,
+        role: 'Employee',
+        department: 'Engineering',
+        employeeId: 'EMP003',
+        phone: '+1555200003',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+        xp: 3200,
+        level: 4,
+        status: 'active',
+        attendance: 95,
+        performanceScore: 8.5,
+        burnoutScore: 20,
+        completedTasksCount: 22,
+        pendingTasksCount: 0,
+        commitsCount: 110,
+        location: 'Austin, TX',
+        salary: '$115,000',
+        managerId: 'MGR001'
+      },
+      {
+        name: 'Olivia Davis',
+        email: 'employee4@workquest.ai',
+        passwordHash,
+        role: 'Employee',
+        department: 'Engineering',
+        employeeId: 'EMP004',
+        phone: '+1555200004',
+        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+        xp: 2200,
+        level: 3,
+        status: 'active',
+        attendance: 94,
+        performanceScore: 8.2,
+        burnoutScore: 28,
+        completedTasksCount: 15,
+        pendingTasksCount: 1,
+        commitsCount: 78,
+        location: 'Austin, TX',
+        salary: '$112,000',
+        managerId: 'MGR001'
+      },
+      {
+        name: 'Noah Miller',
+        email: 'employee5@workquest.ai',
+        passwordHash,
+        role: 'Employee',
+        department: 'Engineering',
+        employeeId: 'EMP005',
+        phone: '+1555200005',
+        avatar: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=150',
+        xp: 2800,
+        level: 3,
+        status: 'active',
+        attendance: 97,
+        performanceScore: 8.6,
+        burnoutScore: 18,
+        completedTasksCount: 20,
+        pendingTasksCount: 0,
+        commitsCount: 92,
+        location: 'Remote',
+        salary: '$115,000',
+        managerId: 'MGR001'
+      },
+      // Michael Lee's employees
+      {
+        name: 'Sophia Taylor',
+        email: 'employee6@workquest.ai',
+        passwordHash,
+        role: 'Employee',
+        department: 'Marketing',
+        employeeId: 'EMP006',
+        phone: '+1555300001',
+        avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
+        xp: 2600,
+        level: 3,
+        status: 'active',
+        attendance: 93,
+        performanceScore: 8.1,
+        burnoutScore: 30,
+        completedTasksCount: 14,
+        pendingTasksCount: 1,
+        commitsCount: 70,
+        location: 'Remote',
+        salary: '$105,000',
+        managerId: 'MGR002'
+      },
+      {
+        name: 'Liam Thomas',
+        email: 'employee7@workquest.ai',
+        passwordHash,
+        role: 'Employee',
+        department: 'Marketing',
+        employeeId: 'EMP007',
+        phone: '+1555300002',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+        xp: 1700,
+        level: 2,
+        status: 'active',
+        attendance: 91,
+        performanceScore: 7.5,
+        burnoutScore: 40,
+        completedTasksCount: 9,
+        pendingTasksCount: 2,
+        commitsCount: 52,
+        location: 'New York, NY',
+        salary: '$100,000',
+        managerId: 'MGR002'
+      },
+      {
+        name: 'Ava White',
+        email: 'employee8@workquest.ai',
+        passwordHash,
+        role: 'Employee',
+        department: 'Marketing',
+        employeeId: 'EMP008',
+        phone: '+1555300003',
+        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+        xp: 3100,
+        level: 4,
+        status: 'active',
+        attendance: 95,
+        performanceScore: 8.4,
+        burnoutScore: 22,
+        completedTasksCount: 21,
+        pendingTasksCount: 0,
+        commitsCount: 105,
+        location: 'New York, NY',
+        salary: '$108,000',
+        managerId: 'MGR002'
+      },
+      {
+        name: 'Ethan Harris',
+        email: 'employee9@workquest.ai',
+        passwordHash,
+        role: 'Employee',
+        department: 'Marketing',
+        employeeId: 'EMP009',
+        phone: '+1555300004',
+        avatar: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=150',
+        xp: 2150,
+        level: 3,
+        status: 'active',
+        attendance: 94,
+        performanceScore: 8.0,
+        burnoutScore: 27,
+        completedTasksCount: 13,
+        pendingTasksCount: 1,
+        commitsCount: 75,
+        location: 'Remote',
+        salary: '$103,000',
+        managerId: 'MGR002'
+      },
+      {
+        name: 'Mia Clark',
+        email: 'employee10@workquest.ai',
+        passwordHash,
+        role: 'Employee',
+        department: 'Marketing',
+        employeeId: 'EMP010',
+        phone: '+1555300005',
+        avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
+        xp: 2950,
+        level: 3,
+        status: 'active',
+        attendance: 96,
+        performanceScore: 8.5,
+        burnoutScore: 19,
+        completedTasksCount: 19,
+        pendingTasksCount: 0,
+        commitsCount: 90,
+        location: 'Remote',
+        salary: '$108,000',
+        managerId: 'MGR002'
+      }
+    ];
 
     console.log('👥 Inserting Users...');
     const insertedUsers = await User.insertMany(usersToInsert);

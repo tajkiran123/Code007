@@ -28,6 +28,7 @@ export interface IUser extends Document {
   skipsLeft: number;
   streakFreezeActive: boolean;
   salary?: string;
+  managerId?: string;
 }
 
 const UserSchema: Schema = new Schema(
@@ -56,7 +57,8 @@ const UserSchema: Schema = new Schema(
     themeColor: { type: String, enum: ['cyan', 'purple', 'emerald', 'amber'], default: 'cyan' },
     skipsLeft: { type: Number, default: 1 },
     streakFreezeActive: { type: Boolean, default: false },
-    salary: { type: String, default: '$115,000' }
+    salary: { type: String, default: '$115,000' },
+    managerId: { type: String }
   },
   { timestamps: true }
 );

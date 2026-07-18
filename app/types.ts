@@ -17,6 +17,7 @@ export interface User {
   department: string;
   joinedAt: string;
   employeeId?: string;
+  managerId?: string;
   themeColor?: 'cyan' | 'purple' | 'emerald' | 'amber';
   skipsLeft?: number;
   streakFreezeActive?: boolean;

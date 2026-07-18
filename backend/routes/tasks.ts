@@ -7,6 +7,54 @@ import mongoose from 'mongoose';
 
 const router = Router();
 
+const normalizeId = (id?: string) => {
+  if (!id) return '';
+  const clean = id.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  if (clean === 'mgr1') return 'mgr001';
+  if (clean === 'mgr2') return 'mgr002';
+  if (clean === 'emp1') return 'emp001';
+  if (clean === 'emp2') return 'emp002';
+  if (clean === 'emp3') return 'emp003';
+  if (clean === 'emp4') return 'emp004';
+  if (clean === 'emp5') return 'emp005';
+  if (clean === 'emp6') return 'emp006';
+  if (clean === 'emp7') return 'emp007';
+  if (clean === 'emp8') return 'emp008';
+  if (clean === 'emp9') return 'emp009';
+  if (clean === 'emp10') return 'emp010';
+  if (clean === 'adm1' || clean === 'ceo1') return 'ceo001';
+  return clean;
+};
+
+const getRequesterUser = async (req: Request) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) return null;
+  const isDbConnected = mongoose.connection.readyState === 1;
+  if (isDbConnected) {
+    try {
+      const cleanId = normalizeId(String(userId));
+      const allUsers = await User.find({});
+      const matched = allUsers.find(u => 
+        normalizeId(u.employeeId) === cleanId || 
+        normalizeId(u.id) === cleanId || 
+        u.email?.toLowerCase() === String(userId).toLowerCase()
+      );
+      if (matched) return matched;
+
+      return await User.findOne({
+        $or: [
+          { _id: mongoose.isValidObjectId(userId) ? new mongoose.Types.ObjectId(String(userId)) : null },
+          { employeeId: String(userId) },
+          { id: String(userId) }
+        ].filter(Boolean)
+      });
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 // @route   GET /api/tasks
 // @desc    Get all tasks or filter by assignee
 router.get('/', async (req: Request, res: Response): Promise<any> => {
@@ -18,7 +66,38 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       return res.json([]);
     }
 
-    const filter = assignedTo ? { assignedTo: String(assignedTo) } : {};
+    const requester = await getRequesterUser(req);
+    let filter: any = {};
+
+    if (requester) {
+      const roleLower = requester.role.toLowerCase();
+      if (roleLower === 'employee') {
+        filter = { 
+          $or: [
+            { assignedTo: requester.employeeId },
+            { assignedTo: normalizeId(requester.employeeId) }
+          ]
+        };
+      } else if (roleLower === 'manager') {
+        const cleanMgrId = normalizeId(requester.employeeId);
+        const allUsers = await User.find({});
+        const teamEmpIds = allUsers
+          .filter(u => normalizeId(u.managerId) === cleanMgrId || normalizeId(u.employeeId) === cleanMgrId)
+          .map(u => u.employeeId);
+        
+        filter = {
+          assignedTo: { $in: [...teamEmpIds, requester.employeeId, cleanMgrId] }
+        };
+      }
+    }
+
+    if (assignedTo) {
+      if (requester && requester.role.toLowerCase() === 'employee' && normalizeId(String(assignedTo)) !== normalizeId(requester.employeeId)) {
+        return res.status(403).json({ error: 'Access Denied. You can only access your own tasks.' });
+      }
+      filter.assignedTo = String(assignedTo);
+    }
+
     const tasks = await Task.find(filter).sort({ createdAt: -1 });
     return res.json(tasks);
   } catch (err) {

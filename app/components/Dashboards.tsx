@@ -701,9 +701,9 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
               {usersList.filter(u => u.role === 'Manager').map(mgr => (
                 <button
                   key={mgr.employeeId || mgr.id}
-                  onClick={() => { setSelectedManagerId(mgr.employeeId); handleSoundClick(); }}
+                  onClick={() => { setSelectedManagerId(mgr.employeeId || null); handleSoundClick(); }}
                   className={`px-3 py-1.5 rounded-lg border uppercase tracking-wider font-bold transition duration-300 ${
-                    selectedManagerId === mgr.employeeId 
+                    selectedManagerId === (mgr.employeeId || null) 
                       ? 'bg-purple-500/10 border-purple-500 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.15)]' 
                       : 'border-white/5 text-zinc-500 hover:text-zinc-300'
                   }`}
@@ -748,7 +748,7 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
                           key={emp.id} 
                           onClick={() => {
                             if (emp.role === 'Manager' || emp.role === 'manager') {
-                              setSelectedManagerId(emp.employeeId || emp.id);
+                              setSelectedManagerId(emp.employeeId || emp.id || null);
                               handleSoundClick();
                             }
                           }}

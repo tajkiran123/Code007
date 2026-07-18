@@ -29,6 +29,7 @@ export interface User {
   pendingTasksCount?: number;
   commitsCount?: number;
   status?: string;
+  attendance?: number;
 }
 
 export interface Task {
@@ -75,6 +76,7 @@ export interface LeaderboardEntry {
   level: number;
   avatar: string;
   department: string;
+  employeeId?: string;
 }
 
 export interface ActivityLog {

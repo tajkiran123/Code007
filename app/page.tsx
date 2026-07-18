@@ -1298,7 +1298,7 @@ export default function Home() {
   const getFilteredLeaderboard = () => {
     const roleLower = (currentUser.role || '').toLowerCase();
     if (roleLower === 'employee') {
-      return mockLeaderboard.filter(l => normalizeId(l.employeeId) === normalizeId(currentUser.employeeId) || normalizeId(l.id) === normalizeId(currentUser.id) || l.name === currentUser.name);
+      return mockLeaderboard.filter(l => normalizeId(l.id) === normalizeId(currentUser.employeeId) || normalizeId(l.id) === normalizeId(currentUser.id) || l.name === currentUser.name);
     } else if (roleLower === 'manager') {
       const teamEmpIds = new Set(
         usersList.filter(u => normalizeId(u.managerId) === normalizeId(currentUser.employeeId) || normalizeId(u.employeeId) === normalizeId(currentUser.employeeId)).map(u => normalizeId(u.employeeId))
@@ -1306,7 +1306,7 @@ export default function Home() {
       const finalTeamIds = teamEmpIds.size > 0 ? teamEmpIds : new Set(
         mockUsers.filter(u => normalizeId(u.managerId) === normalizeId(currentUser.employeeId) || normalizeId(u.employeeId) === normalizeId(currentUser.employeeId)).map(u => normalizeId(u.employeeId))
       );
-      return mockLeaderboard.filter(l => finalTeamIds.has(normalizeId(l.employeeId || l.id)) || l.name === currentUser.name);
+      return mockLeaderboard.filter(l => finalTeamIds.has(normalizeId(l.id)) || l.name === currentUser.name);
     }
     return mockLeaderboard;
   };

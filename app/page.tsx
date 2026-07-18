@@ -315,8 +315,14 @@ export default function Home() {
   // Load telemetry data from MongoDB backend
   const loadBackendData = async () => {
     try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-User-Id': currentUser?.employeeId || currentUser?.id || '',
+        'X-User-Role': currentUser?.role || ''
+      };
+
       // 1. Fetch tasks (merge with mockTasks fallback)
-      const tasksRes = await fetch(`${API_BASE}/tasks`);
+      const tasksRes = await fetch(`${API_BASE}/tasks`, { headers });
       if (tasksRes.ok) {
         const data = await tasksRes.json();
         if (data.length > 0) {
@@ -334,7 +340,7 @@ export default function Home() {
       }
 
       // 2. Fetch rewards
-      const rewardsRes = await fetch(`${API_BASE}/rewards`);
+      const rewardsRes = await fetch(`${API_BASE}/rewards`, { headers });
       if (rewardsRes.ok) {
         const data = await rewardsRes.json();
         setRewardList(data.map((r: { _id?: string; id?: string }) => ({
@@ -344,7 +350,7 @@ export default function Home() {
       }
 
       // 3. Fetch leaderboard
-      const leadRes = await fetch(`${API_BASE}/users/leaderboard`);
+      const leadRes = await fetch(`${API_BASE}/users/leaderboard`, { headers });
       if (leadRes.ok) {
         const data = await leadRes.json();
         setMockLeaderboard(data.map((u: { _id?: string; id?: string }) => ({
@@ -354,21 +360,21 @@ export default function Home() {
       }
 
       // 4. Fetch productivity velocity stats
-      const velRes = await fetch(`${API_BASE}/analytics/velocity`);
+      const velRes = await fetch(`${API_BASE}/analytics/velocity`, { headers });
       if (velRes.ok) {
         const data = await velRes.json();
         setMockProductivityStats(data);
       }
 
       // 5. Fetch burnout report
-      const burnRes = await fetch(`${API_BASE}/analytics/burnout`);
+      const burnRes = await fetch(`${API_BASE}/analytics/burnout`, { headers });
       if (burnRes.ok) {
         const data = await burnRes.json();
         setBurnoutReport(data);
       }
 
       // 6. Fetch users list
-      const usersRes = await fetch(`${API_BASE}/users`);
+      const usersRes = await fetch(`${API_BASE}/users`, { headers });
       if (usersRes.ok) {
         const data = await usersRes.json();
         setUsersList(data.map((u: { _id?: string; id?: string }) => ({
@@ -379,7 +385,7 @@ export default function Home() {
 
       // 7. Fetch complaints / issues list
       try {
-        const complaintsRes = await fetch(`${API_BASE}/ai/complaints`);
+        const complaintsRes = await fetch(`${API_BASE}/ai/complaints`, { headers });
         if (complaintsRes.ok) {
           const data = await complaintsRes.json();
           setComplaintsList(data);
@@ -390,7 +396,7 @@ export default function Home() {
 
       // 8. Fetch company financial analytics
       try {
-        const compRes = await fetch(`${API_BASE}/analytics/company`);
+        const compRes = await fetch(`${API_BASE}/analytics/company`, { headers });
         if (compRes.ok) {
           const data = await compRes.json();
           if (data.financials) setCompanyFinancials(data.financials);
@@ -401,7 +407,7 @@ export default function Home() {
         console.warn("Failed to fetch company financial analytics", err);
       }
     } catch (err) {
-      console.warn("WorkQuest API server offline. Using local telemetry state.", err);
+      console.warn("MongoDB dev-server nodes offline. Relying on local cached state engines.", err);
     }
   };
 
@@ -1252,6 +1258,72 @@ export default function Home() {
       setChatMessages((prev) => [...prev, { sender: 'ai', text: "Calculations indicate offline fallback. Please check Gemini API network connections.", timestamp: 'Just now' }]);
     }
   };
+
+  // RBAC Filtered Data Sets
+  const normalizeId = (id?: string) => {
+    if (!id) return '';
+    const clean = id.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    if (clean === 'mgr1') return 'mgr001';
+    if (clean === 'mgr2') return 'mgr002';
+    if (clean === 'emp1') return 'emp001';
+    if (clean === 'emp2') return 'emp002';
+    if (clean === 'emp3') return 'emp003';
+    if (clean === 'emp4') return 'emp004';
+    if (clean === 'emp5') return 'emp005';
+    if (clean === 'emp6') return 'emp006';
+    if (clean === 'emp7') return 'emp007';
+    if (clean === 'emp8') return 'emp008';
+    if (clean === 'emp9') return 'emp009';
+    if (clean === 'emp10') return 'emp010';
+    if (clean === 'adm1' || clean === 'ceo1') return 'ceo001';
+    return clean;
+  };
+
+  const getFilteredTasks = () => {
+    const roleLower = (currentUser.role || '').toLowerCase();
+    if (roleLower === 'employee') {
+      return tasks.filter(t => normalizeId(t.assignedTo) === normalizeId(currentUser.employeeId));
+    } else if (roleLower === 'manager') {
+      const teamEmpIds = new Set(
+        usersList.filter(u => normalizeId(u.managerId) === normalizeId(currentUser.employeeId) || normalizeId(u.employeeId) === normalizeId(currentUser.employeeId)).map(u => normalizeId(u.employeeId))
+      );
+      const finalTeamIds = teamEmpIds.size > 0 ? teamEmpIds : new Set(
+        mockUsers.filter(u => normalizeId(u.managerId) === normalizeId(currentUser.employeeId) || normalizeId(u.employeeId) === normalizeId(currentUser.employeeId)).map(u => normalizeId(u.employeeId))
+      );
+      return tasks.filter(t => finalTeamIds.has(normalizeId(t.assignedTo)));
+    }
+    return tasks;
+  };
+
+  const getFilteredLeaderboard = () => {
+    const roleLower = (currentUser.role || '').toLowerCase();
+    if (roleLower === 'employee') {
+      return mockLeaderboard.filter(l => normalizeId(l.id) === normalizeId(currentUser.employeeId) || normalizeId(l.id) === normalizeId(currentUser.id) || l.name === currentUser.name);
+    } else if (roleLower === 'manager') {
+      const teamEmpIds = new Set(
+        usersList.filter(u => normalizeId(u.managerId) === normalizeId(currentUser.employeeId) || normalizeId(u.employeeId) === normalizeId(currentUser.employeeId)).map(u => normalizeId(u.employeeId))
+      );
+      const finalTeamIds = teamEmpIds.size > 0 ? teamEmpIds : new Set(
+        mockUsers.filter(u => normalizeId(u.managerId) === normalizeId(currentUser.employeeId) || normalizeId(u.employeeId) === normalizeId(currentUser.employeeId)).map(u => normalizeId(u.employeeId))
+      );
+      return mockLeaderboard.filter(l => finalTeamIds.has(normalizeId(l.id)) || l.name === currentUser.name);
+    }
+    return mockLeaderboard;
+  };
+
+  const getFilteredUsersList = () => {
+    const roleLower = (currentUser.role || '').toLowerCase();
+    if (roleLower === 'employee') {
+      return usersList.filter(u => normalizeId(u.employeeId) === normalizeId(currentUser.employeeId) || normalizeId(u.id) === normalizeId(currentUser.id));
+    } else if (roleLower === 'manager') {
+      return usersList.filter(u => normalizeId(u.managerId) === normalizeId(currentUser.employeeId) || normalizeId(u.employeeId) === normalizeId(currentUser.employeeId));
+    }
+    return usersList;
+  };
+
+  const visibleTasks = getFilteredTasks();
+  const visibleLeaderboard = getFilteredLeaderboard();
+  const visibleUsersList = getFilteredUsersList();
 
   // Compute payroll statistics dynamically at the component root level
   const totalNodes = usersList.length;
@@ -2169,10 +2241,10 @@ export default function Home() {
                     {/* TODO lane */}
                     <div className="flex flex-col gap-4">
                       <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-zinc-950 text-[9px] font-bold text-zinc-400 uppercase font-mono border-l-2 border-slate-600 shadow">
-                        <span>To Do ({tasks.filter(t => t.status === 'todo').length})</span>
+                        <span>To Do ({visibleTasks.filter(t => t.status === 'todo').length})</span>
                       </div>
                       <div className="space-y-4 min-h-[150px]">
-                        {tasks.filter(t => t.status === 'todo').map((task) => (
+                        {visibleTasks.filter(t => t.status === 'todo').map((task) => (
                           <TiltCard key={task.id}>
                             <div 
                               onClick={() => { setSelectedTask(task); handleSoundClick(); }}
@@ -2208,10 +2280,10 @@ export default function Home() {
                     {/* IN PROGRESS lane */}
                     <div className="flex flex-col gap-4">
                       <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-zinc-950 text-[9px] font-bold text-zinc-400 uppercase font-mono border-l-2 border-[#00e5ff] shadow">
-                        <span>In Progress ({tasks.filter(t => t.status === 'in_progress').length})</span>
+                        <span>In Progress ({visibleTasks.filter(t => t.status === 'in_progress').length})</span>
                       </div>
                       <div className="space-y-4 min-h-[150px]">
-                        {tasks.filter(t => t.status === 'in_progress').map((task) => (
+                        {visibleTasks.filter(t => t.status === 'in_progress').map((task) => (
                           <TiltCard key={task.id}>
                             <div 
                               onClick={() => { setSelectedTask(task); handleSoundClick(); }}
@@ -2256,10 +2328,10 @@ export default function Home() {
                     {/* PIPELINE / VERIFY lane */}
                     <div className="flex flex-col gap-4">
                       <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-zinc-950 text-[9px] font-bold text-[#00ff88] uppercase font-mono border-l-2 border-[#00ff88] shadow">
-                        <span>Pipeline ({tasks.filter(t => t.status === 'in_review' || t.status === 'completed').length})</span>
+                        <span>Pipeline ({visibleTasks.filter(t => t.status === 'in_review' || t.status === 'completed').length})</span>
                       </div>
                       <div className="space-y-4 min-h-[150px]">
-                        {tasks.filter(t => t.status === 'in_review' || t.status === 'completed').map((task) => (
+                        {visibleTasks.filter(t => t.status === 'in_review' || t.status === 'completed').map((task) => (
                           <TiltCard key={task.id}>
                             <div 
                               onClick={() => { setSelectedTask(task); handleSoundClick(); }}
@@ -2460,14 +2532,14 @@ export default function Home() {
               <div className="flex flex-col gap-8 text-left">
                 
                 {/* Leaderboard */}
-                {currentUser.role === 'Admin' && (
+                {(
                   <div className="glass-panel p-8 rounded-2xl border-[#00e5ff]/15 bg-zinc-950/40">
                     <div className="flex justify-between items-center mb-6">
                       <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">Rank rosters</h3>
                       <Trophy className="text-zinc-400" size={16} />
                     </div>
                     <div className="space-y-4">
-                      {mockLeaderboard.map((lead) => (
+                      {visibleLeaderboard.map((lead) => (
                         <div 
                           key={lead.id} 
                           className={`flex items-center justify-between p-3.5 rounded-xl border transition duration-300 ${
@@ -2554,10 +2626,10 @@ export default function Home() {
             newTaskAssignee={newTaskAssignee}
             setNewTaskAssignee={setNewTaskAssignee}
             handleAddTask={handleAddTask}
-            tasks={tasks}
+            tasks={visibleTasks}
             setTaskToApprove={setTaskToApprove}
             handleSoundClick={handleSoundClick}
-            usersList={usersList}
+            usersList={visibleUsersList}
           />
         )}
 

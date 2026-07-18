@@ -9,6 +9,25 @@ import Department from '../models/Department';
 
 const router = Router();
 
+const normalizeId = (id?: string) => {
+  if (!id) return '';
+  const clean = id.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  if (clean === 'mgr1') return 'mgr001';
+  if (clean === 'mgr2') return 'mgr002';
+  if (clean === 'emp1') return 'emp001';
+  if (clean === 'emp2') return 'emp002';
+  if (clean === 'emp3') return 'emp003';
+  if (clean === 'emp4') return 'emp004';
+  if (clean === 'emp5') return 'emp005';
+  if (clean === 'emp6') return 'emp006';
+  if (clean === 'emp7') return 'emp007';
+  if (clean === 'emp8') return 'emp008';
+  if (clean === 'emp9') return 'emp009';
+  if (clean === 'emp10') return 'emp010';
+  if (clean === 'adm1' || clean === 'ceo1') return 'ceo001';
+  return clean;
+};
+
 // Global in-memory fallback for complaints when MongoDB is offline
 let mockComplaintsDb = [
   { _id: '1', id: '1', userName: 'Developer Engineer 01', text: 'Slow loading times on the dev environment.', status: 'pending', createdAt: new Date(Date.now() - 3600000).toISOString() },
@@ -50,13 +69,24 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
 
     if (isDbConnected && userId) {
       try {
-        user = await User.findOne({
-          $or: [
-            { _id: mongoose.isValidObjectId(userId) ? new mongoose.Types.ObjectId(userId) : null },
-            { employeeId: userId },
-            { id: userId }
-          ].filter(Boolean)
-        });
+        const cleanId = normalizeId(userId);
+        const allUsers = await User.find({});
+        const matched = allUsers.find(u => 
+          normalizeId(u.employeeId) === cleanId || 
+          normalizeId(u.id) === cleanId || 
+          u.email?.toLowerCase() === userId.toLowerCase()
+        );
+        if (matched) {
+          user = matched;
+        } else {
+          user = await User.findOne({
+            $or: [
+              { _id: mongoose.isValidObjectId(userId) ? new mongoose.Types.ObjectId(userId) : null },
+              { employeeId: userId },
+              { id: userId }
+            ].filter(Boolean)
+          });
+        }
         if (user) {
           tasks = await Task.find({ assignedTo: user.employeeId, status: 'in_progress' });
         }
@@ -167,13 +197,90 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
     ];
 
     const LOCAL_USERS = [
-      { name: 'Admin Commander 01', email: 'admin01@workquest.ai', role: 'Admin', department: 'DevOps', employeeId: 'ADM-001', xp: 5000, level: 5, burnoutScore: 5, completedTasksCount: 42, commitsCount: 154, location: 'San Francisco, CA' },
-      { name: 'Manager Leader 01', email: 'manager01@workquest.ai', role: 'Manager', department: 'Frontend Engineering', employeeId: 'MGR-001', xp: 4000, level: 4, burnoutScore: 12, completedTasksCount: 30, commitsCount: 120, location: 'New York, NY' },
-      { name: 'Manager Leader 02', email: 'manager02@workquest.ai', role: 'Manager', department: 'Backend Engineering', employeeId: 'MGR-002', xp: 4000, level: 4, burnoutScore: 12, completedTasksCount: 30, commitsCount: 120, location: 'New York, NY' },
-      { name: 'Developer Engineer 01', email: 'employee1@workquest.ai', role: 'Employee', department: 'Backend Engineering', employeeId: 'EMP-001', xp: 2800, level: 3, burnoutScore: 15, completedTasksCount: 18, commitsCount: 95, location: 'Austin, TX' },
-      { name: 'Developer Engineer 02', email: 'employee2@workquest.ai', role: 'Employee', department: 'Frontend Engineering', employeeId: 'EMP-002', xp: 1900, level: 2, burnoutScore: 45, completedTasksCount: 12, commitsCount: 65, location: 'Remote' },
-      { name: 'Developer Engineer 03', email: 'employee3@workquest.ai', role: 'Employee', department: 'AI Research', employeeId: 'EMP-003', xp: 3200, level: 4, burnoutScore: 60, completedTasksCount: 22, commitsCount: 110, location: 'Austin, TX' }
+      { name: 'John Anderson', email: 'admin01@workquest.ai', role: 'Admin', department: 'Executive', employeeId: 'CEO001', xp: 5000, level: 5, burnoutScore: 5, completedTasksCount: 42, commitsCount: 154, location: 'San Francisco, CA' },
+      { name: 'Sarah Johnson', email: 'manager01@workquest.ai', role: 'Manager', department: 'Engineering', employeeId: 'MGR001', xp: 4000, level: 4, burnoutScore: 12, completedTasksCount: 30, commitsCount: 120, location: 'New York, NY', managerId: 'CEO001' },
+      { name: 'Michael Lee', email: 'manager02@workquest.ai', role: 'Manager', department: 'Marketing', employeeId: 'MGR002', xp: 4000, level: 4, burnoutScore: 12, completedTasksCount: 30, commitsCount: 120, location: 'New York, NY', managerId: 'CEO001' },
+      { name: 'Alex Carter', email: 'employee1@workquest.ai', role: 'Employee', department: 'Engineering', employeeId: 'EMP001', xp: 3420, level: 4, burnoutScore: 15, completedTasksCount: 18, commitsCount: 95, location: 'Austin, TX', managerId: 'MGR001' },
+      { name: 'Emma Wilson', email: 'employee2@workquest.ai', role: 'Employee', department: 'Engineering', employeeId: 'EMP002', xp: 1900, level: 2, burnoutScore: 45, completedTasksCount: 12, commitsCount: 65, location: 'Remote', managerId: 'MGR001' },
+      { name: 'Daniel Brown', email: 'employee3@workquest.ai', role: 'Employee', department: 'Engineering', employeeId: 'EMP003', xp: 3200, level: 4, burnoutScore: 20, completedTasksCount: 22, commitsCount: 110, location: 'Austin, TX', managerId: 'MGR001' },
+      { name: 'Olivia Davis', email: 'employee4@workquest.ai', role: 'Employee', department: 'Engineering', employeeId: 'EMP004', xp: 2200, level: 3, burnoutScore: 28, completedTasksCount: 15, commitsCount: 78, location: 'Austin, TX', managerId: 'MGR001' },
+      { name: 'Noah Miller', email: 'employee5@workquest.ai', role: 'Employee', department: 'Engineering', employeeId: 'EMP005', xp: 2800, level: 3, burnoutScore: 18, completedTasksCount: 20, commitsCount: 92, location: 'Remote', managerId: 'MGR001' },
+      { name: 'Sophia Taylor', email: 'employee6@workquest.ai', role: 'Employee', department: 'Marketing', employeeId: 'EMP006', xp: 2600, level: 3, burnoutScore: 30, completedTasksCount: 14, commitsCount: 70, location: 'Remote', managerId: 'MGR002' },
+      { name: 'Liam Thomas', email: 'employee7@workquest.ai', role: 'Employee', department: 'Marketing', employeeId: 'EMP007', xp: 1700, level: 2, burnoutScore: 40, completedTasksCount: 9, commitsCount: 52, location: 'New York, NY', managerId: 'MGR002' },
+      { name: 'Ava White', email: 'employee8@workquest.ai', role: 'Employee', department: 'Marketing', employeeId: 'EMP008', xp: 3100, level: 4, burnoutScore: 22, completedTasksCount: 21, commitsCount: 105, location: 'New York, NY', managerId: 'MGR002' },
+      { name: 'Ethan Harris', email: 'employee9@workquest.ai', role: 'Employee', department: 'Marketing', employeeId: 'EMP009', xp: 2150, level: 3, burnoutScore: 27, completedTasksCount: 13, commitsCount: 75, location: 'Remote', managerId: 'MGR002' },
+      { name: 'Mia Clark', email: 'employee10@workquest.ai', role: 'Employee', department: 'Marketing', employeeId: 'EMP010', xp: 2950, level: 3, burnoutScore: 19, completedTasksCount: 19, commitsCount: 90, location: 'Remote', managerId: 'MGR002' }
     ];
+
+    if (!user && userId) {
+      const cleanUserId = normalizeId(userId);
+      user = LOCAL_USERS.find((u: any) => 
+        normalizeId(u.employeeId) === cleanUserId ||
+        u.email?.toLowerCase() === userId.toLowerCase() ||
+        (userId.toLowerCase() === 'adm-1' && u.role.toLowerCase() === 'admin') ||
+        (userId.toLowerCase() === 'emp-1' && u.email === 'employee1@workquest.ai') ||
+        (userId.toLowerCase() === 'mgr-1' && u.email === 'manager01@workquest.ai')
+      ) || null;
+    }
+
+    // RBAC Security Gate checks before AI context construction
+    if (user) {
+      const userRoleLower = (user.role || '').toLowerCase();
+      const cleanEmpId = normalizeId(user.employeeId);
+      
+      if (userRoleLower === 'employee') {
+        const otherUsers = isDbConnected 
+          ? await User.find({ employeeId: { $ne: user.employeeId } }).lean()
+          : LOCAL_USERS.filter((u: any) => normalizeId(u.employeeId) !== cleanEmpId);
+        
+        const mentionsOther = otherUsers.some((u: any) => {
+          const nameLower = u.name.toLowerCase();
+          const firstLast = nameLower.split(' ');
+          const empIdLower = (u.employeeId || '').toLowerCase();
+          const cleanOtherId = normalizeId(u.employeeId);
+          return (
+            queryLower.includes(nameLower) ||
+            (firstLast.length > 1 && firstLast[1].length > 2 && queryLower.includes(firstLast[1])) ||
+            (empIdLower && queryLower.includes(empIdLower)) ||
+            (cleanOtherId && queryLower.includes(cleanOtherId))
+          );
+        });
+
+        if (mentionsOther) {
+          return res.json({
+            reply: "Access Denied. You can only access your own information."
+          });
+        }
+      } else if (userRoleLower === 'manager') {
+        const teamMembers = isDbConnected
+          ? await User.find({ $or: [{ managerId: user.employeeId }, { managerId: cleanEmpId }] }).lean()
+          : LOCAL_USERS.filter((u: any) => normalizeId(u.managerId) === cleanEmpId);
+        const teamEmployeeIds = new Set(teamMembers.map((m: any) => normalizeId(m.employeeId || m.id)));
+
+        const otherUsers = isDbConnected
+          ? await User.find({ employeeId: { $nin: [...Array.from(teamEmployeeIds), user.employeeId.toLowerCase(), cleanEmpId] } }).lean()
+          : LOCAL_USERS.filter((u: any) => normalizeId(u.employeeId) !== cleanEmpId && normalizeId(u.managerId) !== cleanEmpId);
+
+        const mentionsOther = otherUsers.some((u: any) => {
+          const nameLower = u.name.toLowerCase();
+          const firstLast = nameLower.split(' ');
+          const empIdLower = (u.employeeId || '').toLowerCase();
+          const cleanOtherId = normalizeId(u.employeeId);
+          return (
+            queryLower.includes(nameLower) ||
+            (firstLast.length > 1 && firstLast[1].length > 2 && queryLower.includes(firstLast[1])) ||
+            (empIdLower && queryLower.includes(empIdLower)) ||
+            (cleanOtherId && queryLower.includes(cleanOtherId))
+          );
+        });
+
+        if (mentionsOther) {
+          return res.json({
+            reply: "Access Denied. You can only access employees assigned to your team."
+          });
+        }
+      }
+    }
 
     // Keyword extraction helper for smart RAG searching
     const extractKeywords = (text: string): string[] => {
@@ -244,23 +351,51 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
           ];
 
           let matchingUsers = await User.find({ $or: userQueries }).limit(10).lean();
-          const topUsers = await User.find().sort({ xp: -1 }).limit(5).lean();
+          
+          const userRole = (user?.role || '').toLowerCase();
+          const isCeo = userRole === 'admin' || userRole === 'ceo';
+          const isManager = userRole === 'manager';
+          const cleanMgrId = user ? normalizeId(user.employeeId) : '';
 
-          ragContext += `\n[GROUNDED KNOWLEDGE: Employee Profiles & Leaderboard]\n`;
-          ragContext += `Top 5 Leaderboard Standings:\n`;
-          topUsers.forEach((u: any, idx: number) => {
-            ragContext += `${idx + 1}. ${u.name} (Level ${u.level}, ${u.xp} XP, Dept: ${u.department}, Status: ${u.status})\n`;
-          });
-
-          if (matchingUsers.length === 0) {
-            matchingUsers = await User.find().limit(5).lean();
+          let topUsers = [];
+          if (isCeo) {
+            topUsers = await User.find().sort({ xp: -1 }).limit(5).lean();
+          } else if (isManager) {
+            topUsers = await User.find({ $or: [{ managerId: user?.employeeId }, { managerId: cleanMgrId }, { employeeId: user?.employeeId }] }).sort({ xp: -1 }).limit(5).lean();
+          } else {
+            topUsers = user ? [user] : [];
           }
 
-          if (matchingUsers.length > 0) {
+          ragContext += `\n[GROUNDED KNOWLEDGE: Employee Profiles & Leaderboard]\n`;
+          ragContext += `Top Leaderboard Standings:\n`;
+          topUsers.forEach((u: any, idx: number) => {
+            ragContext += `${idx + 1}. ${u.name} (Level ${u.level}, ${u.xp} XP, Dept: ${u.department})\n`;
+          });
+
+          if (isCeo) {
+            if (matchingUsers.length === 0) {
+              matchingUsers = await User.find().limit(5).lean();
+            }
             ragContext += `Matching Employee Profiles:\n`;
             matchingUsers.forEach((u: any) => {
               ragContext += `- Name: ${u.name} (ID: ${u.employeeId}), Role: ${u.role}, Dept: ${u.department}, Level: ${u.level} (${u.xp} XP), Burnout Score: ${u.burnoutScore}%, Commits: ${u.commitsCount}, Completed Tasks: ${u.completedTasksCount}, Status: ${u.status}, Location: ${u.location}\n`;
             });
+          } else if (isManager) {
+            const allowedUsers = matchingUsers.filter((u: any) => 
+              normalizeId(u.managerId) === cleanMgrId || 
+              normalizeId(u.employeeId) === cleanMgrId
+            );
+            ragContext += `Matching Team Employee Profiles:\n`;
+            allowedUsers.forEach((u: any) => {
+              ragContext += `- Name: ${u.name} (ID: ${u.employeeId}), Role: ${u.role}, Dept: ${u.department}, Level: ${u.level} (${u.xp} XP), Burnout Score: ${u.burnoutScore}%, Commits: ${u.commitsCount}, Completed Tasks: ${u.completedTasksCount}, Status: ${u.status}, Location: ${u.location}\n`;
+            });
+            ragContext += `[SECURITY CONSTRAINT] You only have clearance to access employees on your team. Do NOT disclose detailed team telemetry of other departments/managers.\n`;
+          } else {
+            ragContext += `Matching Employee Profiles:\n`;
+            if (user) {
+              ragContext += `- Name: ${user.name} (ID: ${user.employeeId}), Role: ${user.role}, Dept: ${user.department}, Level: ${user.level} (${user.xp} XP), Burnout Score: ${user.burnoutScore}%, Location: ${user.location}\n`;
+            }
+            ragContext += `[SECURITY CONSTRAINT] Detailed telemetry of other employees is confidential. You only have access to your own personal profile.\n`;
           }
         }
 
@@ -364,7 +499,19 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
             keywords.some(kw => u.name.toLowerCase().includes(kw) || u.department.toLowerCase().includes(kw))
           );
 
-          const topUsers = [...LOCAL_USERS].sort((a, b) => b.xp - a.xp).slice(0, 5);
+          const userRole = (user?.role || '').toLowerCase();
+          const isCeo = userRole === 'admin' || userRole === 'ceo';
+          const isManager = userRole === 'manager';
+          const cleanMgrId = user ? normalizeId(user.employeeId) : '';
+
+          let topUsers = [];
+          if (isCeo) {
+            topUsers = [...LOCAL_USERS].sort((a, b) => b.xp - a.xp).slice(0, 5);
+          } else if (isManager) {
+            topUsers = LOCAL_USERS.filter((u: any) => normalizeId(u.managerId) === cleanMgrId || normalizeId(u.employeeId) === cleanMgrId).sort((a, b) => b.xp - a.xp).slice(0, 5);
+          } else {
+            topUsers = user ? [user] : [];
+          }
 
           ragContext += `\n[GROUNDED KNOWLEDGE: Employee Profiles & Leaderboard]\n`;
           ragContext += `Top Leaderboard Standings:\n`;
@@ -372,15 +519,30 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
             ragContext += `${idx + 1}. ${u.name} (Level ${u.level}, ${u.xp} XP, Dept: ${u.department})\n`;
           });
 
-          if (matchingUsers.length === 0) {
-            matchingUsers = LOCAL_USERS.slice(0, 5);
-          }
-
-          if (matchingUsers.length > 0) {
+          if (isCeo) {
+            if (matchingUsers.length === 0) {
+              matchingUsers = LOCAL_USERS.slice(0, 5);
+            }
             ragContext += `Matching Employee Profiles:\n`;
             matchingUsers.forEach(u => {
               ragContext += `- Name: ${u.name} (ID: ${u.employeeId}), Role: ${u.role}, Dept: ${u.department}, Level: ${u.level} (${u.xp} XP), Burnout Score: ${u.burnoutScore}%, Location: ${u.location}\n`;
             });
+          } else if (isManager) {
+            const allowedUsers = matchingUsers.filter((u: any) => 
+              normalizeId(u.managerId) === cleanMgrId || 
+              normalizeId(u.employeeId) === cleanMgrId
+            );
+            ragContext += `Matching Team Employee Profiles:\n`;
+            allowedUsers.forEach(u => {
+              ragContext += `- Name: ${u.name} (ID: ${u.employeeId}), Role: ${u.role}, Dept: ${u.department}, Level: ${u.level} (${u.xp} XP), Burnout Score: ${u.burnoutScore}%, Location: ${u.location}\n`;
+            });
+            ragContext += `[SECURITY CONSTRAINT] You only have clearance to access employees on your team. Do NOT disclose detailed team telemetry of other departments/managers.\n`;
+          } else {
+            ragContext += `Matching Employee Profiles:\n`;
+            if (user) {
+              ragContext += `- Name: ${user.name} (ID: ${user.employeeId}), Role: ${user.role}, Dept: ${user.department}, Level: ${user.level} (${user.xp} XP), Burnout Score: ${user.burnoutScore}%, Location: ${user.location}\n`;
+            }
+            ragContext += `[SECURITY CONSTRAINT] Detailed telemetry of other employees is confidential. You only have access to your own personal profile.\n`;
           }
         }
 
@@ -449,9 +611,16 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
       
       Complaint Lodging Rule:
       - If the user asks about raising, lodging, or filing a complaint, tell them they must type their message starting with '/complaint <describe issue here>' (for example, '/complaint Slow loading times on dev server'). Inform them that using this command will automatically save their ticket to MongoDB Atlas and ping department managers.
+
+      Security Telemetry Access Rule:
+      - The requesting user role is "${user?.role || 'Employee'}".
+      - Detailed employee profiling is restricted as follows:
+        * Employees (non-managers): Can ONLY see their own profile, tasks, streak, and burnout. They are strictly prohibited from viewing details about other employees, teams, or managers. If they ask about other employees or teams, refuse politely.
+        * Managers: Can see details of employees in their own team (provided in the grounded knowledge below), but they are strictly prohibited from viewing details of other teams, other managers, or company-wide payroll/financials.
+        * CEO (Admin): Can see details of all managers, employees, and company-wide metrics.
       
-      You are tracking ${user?.role || 'Admin'} named ${user?.name || 'Admin Commander 01'} in the ${user?.department || 'DevOps'} department. 
-      They currently have ${user?.xp || 3428} XP, Level ${user?.level || 4}, and a burnout score of ${user?.burnoutScore || 15}%. 
+      You are tracking ${user?.role || 'Employee'} named ${user?.name || 'Developer Engineer 01'} in the ${user?.department || 'Backend Engineering'} department. 
+      They currently have ${user?.xp || 2800} XP, Level ${user?.level || 3}, and a burnout score of ${user?.burnoutScore || 15}%. 
       Active tasks they are working on: ${tasks.length ? tasks.map(t => t.title).join(', ') : 'Refactor Core State Engine'}.
       
       ${ragContext ? `
@@ -466,7 +635,13 @@ router.post('/chat', async (req: Request, res: Response): Promise<any> => {
     // Dynamic keyword fallback if Gemini is offline
     let fallback = "System Online. Shifting workload parameters implies burnout index is stable at 14%. Keep daily login multipliers active.";
     const lower = message.toLowerCase();
-    if (lower.includes('python')) {
+    const userRole = (user?.role || '').toLowerCase();
+    const isCeo = userRole === 'admin' || userRole === 'ceo';
+    const isManager = userRole === 'manager';
+
+    if (!isCeo && !isManager && (lower.includes('team') || lower.includes('employee') || lower.includes('everyone') || lower.includes('others') || lower.includes('coworker') || lower.includes('rundown'))) {
+      fallback = "Detailed team telemetry, burnout diagnostics, and employee profiles are restricted to managers and the CEO for privacy reasons. You can query your own level and task metrics.";
+    } else if (lower.includes('python')) {
       fallback = "Python is a powerful, high-level, interpreted programming language. In our WorkQuest sprint plexus, Python is recommended for backend microservices, data pipeline scaling, and automation workflows. Let me know if you would like me to draft a Python task ticket template.";
     } else if (lower.includes('streak') || lower.includes('burnout') || lower.includes('exhaustion')) {
       fallback = "Burnout coefficient currently stable at 14%. Workspace streak multipliers are active. Recommended action is to balance task velocity with rest blocks.";

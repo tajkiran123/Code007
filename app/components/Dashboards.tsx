@@ -272,21 +272,29 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
               <p className="text-xs text-zinc-500 font-mono mb-6">Indices measured via frequency of commits, backlog size, and hours active.</p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
-                <div className="p-5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-white">Developer Engineer 01</h4>
-                    <p className="text-[10px] text-emerald-400 mt-1.5">Burnout: 14% (Safe)</p>
+                {usersList
+                  .filter(u => u.role?.toLowerCase() === 'employee')
+                  .map(emp => {
+                    const score = emp.burnoutScore || 15;
+                    const statusText = score > 70 ? 'Danger' : score > 40 ? 'Warning' : 'Safe';
+                    const colorClass = score > 70 ? 'text-red-500' : score > 40 ? 'text-yellow-450' : 'text-emerald-400';
+                    const indicatorClass = score > 70 ? 'bg-red-500 animate-ping' : score > 40 ? 'bg-yellow-500' : 'bg-emerald-500';
+                    return (
+                      <div key={emp.employeeId || emp.id} className="p-5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
+                        <div>
+                          <h4 className="font-bold text-white">{emp.name}</h4>
+                          <p className={`text-[10px] ${colorClass} mt-1.5`}>Burnout: {score}% ({statusText})</p>
+                        </div>
+                        <span className={`w-2.5 h-2.5 rounded-full ${indicatorClass}`} />
+                      </div>
+                    );
+                  })
+                }
+                {usersList.filter(u => u.role?.toLowerCase() === 'employee').length === 0 && (
+                  <div className="col-span-2 py-8 text-center text-zinc-600 text-xs font-mono">
+                    No team members registry found.
                   </div>
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                </div>
-
-                <div className="p-5 rounded-xl bg-zinc-950 border border-white/5 flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-white">Jordan Sparks</h4>
-                    <p className="text-[10px] text-red-500 mt-1.5">Burnout: 78% (Warning)</p>
-                  </div>
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -402,6 +410,7 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
   leaderboardList = [],
 }) => {
   const [rewardTitle, setRewardTitle] = React.useState('');
+  const [selectedManagerId, setSelectedManagerId] = React.useState<string | null>(null);
   const [rewardDesc, setRewardDesc] = React.useState('');
   const [rewardCost, setRewardCost] = React.useState('1000');
   const [rewardStock, setRewardStock] = React.useState('10');
@@ -625,6 +634,7 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
               <div>
                 <p className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold">Secure Core Nodes</p>
                 <h4 className="text-2xl font-black text-white mt-1">{totalNodes} Active</h4>
+                <p className="text-[9px] text-zinc-500 mt-1 uppercase">MGRs: {usersList.filter(u => u.role === 'Manager').length} • EMPs: {usersList.filter(u => u.role === 'Employee').length}</p>
               </div>
               <span className="w-8 h-8 rounded-lg bg-zinc-900 border border-[#00e5ff]/30 flex items-center justify-center text-[#00e5ff]">
                 <Users size={16} />
@@ -676,6 +686,33 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
               </div>
             </div>
 
+            {/* Managers Selector Filters */}
+            <div className="flex flex-wrap gap-2 text-[10px] font-mono border-b border-white/5 pb-4 relative z-10">
+              <button 
+                onClick={() => { setSelectedManagerId(null); handleSoundClick(); }}
+                className={`px-3 py-1.5 rounded-lg border uppercase tracking-wider font-bold transition duration-300 ${
+                  selectedManagerId === null 
+                    ? 'bg-[#00e5ff]/10 border-[#00e5ff] text-[#00e5ff] shadow-[0_0_10px_rgba(0,229,255,0.15)]' 
+                    : 'border-white/5 text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                All Nodes ({usersList.length})
+              </button>
+              {usersList.filter(u => u.role === 'Manager').map(mgr => (
+                <button
+                  key={mgr.employeeId || mgr.id}
+                  onClick={() => { setSelectedManagerId(mgr.employeeId || null); handleSoundClick(); }}
+                  className={`px-3 py-1.5 rounded-lg border uppercase tracking-wider font-bold transition duration-300 ${
+                    selectedManagerId === (mgr.employeeId || null) 
+                      ? 'bg-purple-500/10 border-purple-500 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.15)]' 
+                      : 'border-white/5 text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  {mgr.name} Team ({usersList.filter(u => u.managerId === mgr.employeeId).length})
+                </button>
+              ))}
+            </div>
+
             <div className="overflow-x-auto w-full relative z-10">
               <table className="w-full border-collapse font-mono text-left text-xs">
                 <thead>
@@ -694,7 +731,12 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
                   {usersList
                     .filter(u => {
                       const query = employeeSearch.toLowerCase();
-                      return u.name.toLowerCase().includes(query) || u.department.toLowerCase().includes(query);
+                      const matchesSearch = u.name.toLowerCase().includes(query) || u.department.toLowerCase().includes(query);
+                      if (!matchesSearch) return false;
+                      if (selectedManagerId) {
+                        return u.managerId === selectedManagerId;
+                      }
+                      return true;
                     })
                     .sort((a, b) => (a.department || '').localeCompare(b.department || ''))
                     .map((emp) => {
@@ -702,15 +744,34 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
                       const burnoutColor = burnout < 30 ? 'text-emerald-400 font-bold' : burnout < 65 ? 'text-yellow-400 font-bold' : 'text-red-500 font-bold';
                       
                       return (
-                        <tr key={emp.id} className="hover:bg-white/[0.02] transition duration-200 group">
+                        <tr 
+                          key={emp.id} 
+                          onClick={() => {
+                            if (emp.role === 'Manager' || emp.role === 'manager') {
+                              setSelectedManagerId(emp.employeeId || emp.id || null);
+                              handleSoundClick();
+                            }
+                          }}
+                          className={`hover:bg-white/[0.02] transition duration-200 group ${
+                            (emp.role === 'Manager' || emp.role === 'manager') ? 'cursor-pointer border-l-2 border-purple-500' : ''
+                          }`}
+                        >
                           <td className="py-4 px-3 flex items-center gap-3">
                             <div className="relative">
                               <img src={emp.avatar} className="w-9 h-9 rounded-full object-cover border border-[#00e5ff]/35 shadow-[0_0_8px_rgba(0,229,255,0.15)] group-hover:scale-105 transition" alt="" />
                               <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-zinc-950 ${emp.status === 'on_leave' ? 'bg-yellow-500' : 'bg-[#00ff88] animate-pulse'}`} />
                             </div>
                             <div>
-                              <p className="font-bold text-white font-sans group-hover:text-[#00e5ff] transition">{emp.name}</p>
+                              <p className="font-bold text-white font-sans group-hover:text-[#00e5ff] transition flex items-center gap-1.5">
+                                {emp.name}
+                                {(emp.role === 'Manager' || emp.role === 'manager') && (
+                                  <span className="text-[7px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/35 uppercase">MGR Node</span>
+                                )}
+                              </p>
                               <p className="text-[10px] text-zinc-500 mt-0.5">{emp.email}</p>
+                              {emp.role?.toLowerCase() === 'employee' && (
+                                <p className="text-[9px] text-[#00e5ff]/70 mt-1.5 font-mono">Streak: {emp.streak || 0}d • Tasks: {emp.completedTasksCount || 0} completed</p>
+                              )}
                             </div>
                           </td>
                           <td className="py-4 px-3 font-bold text-zinc-400">
@@ -725,6 +786,9 @@ export const CeoDashboard: React.FC<CeoDashboardProps> = ({
                           <td className="py-4 px-3">
                             <span className="text-[#00e5ff] font-bold">LVL {emp.level}</span>
                             <span className="text-[9px] text-zinc-500 ml-1.5">({emp.xp} XP)</span>
+                            {emp.role?.toLowerCase() === 'employee' && (
+                              <p className="text-[9px] text-zinc-500 mt-1 font-mono">Attendance: {emp.attendance || 95}%</p>
+                            )}
                           </td>
                           <td className="py-4 px-3">
                             <div className="px-3 py-1 rounded-md bg-[#00ff88]/5 border border-[#00ff88]/20 font-bold font-mono text-[#00ff88] text-[10px] tracking-wide shadow-[0_0_10px_rgba(0,255,136,0.05)] flex items-center justify-center gap-1.5 w-fit">

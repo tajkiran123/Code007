@@ -5,10 +5,61 @@ import mongoose from 'mongoose';
 
 const router = Router();
 
+const normalizeId = (id?: string) => {
+  if (!id) return '';
+  const clean = id.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  if (clean === 'mgr1') return 'mgr001';
+  if (clean === 'mgr2') return 'mgr002';
+  if (clean === 'emp1') return 'emp001';
+  if (clean === 'emp2') return 'emp002';
+  if (clean === 'emp3') return 'emp003';
+  if (clean === 'emp4') return 'emp004';
+  if (clean === 'emp5') return 'emp005';
+  if (clean === 'emp6') return 'emp006';
+  if (clean === 'emp7') return 'emp007';
+  if (clean === 'emp8') return 'emp008';
+  if (clean === 'emp9') return 'emp009';
+  if (clean === 'emp10') return 'emp010';
+  if (clean === 'adm1' || clean === 'ceo1') return 'ceo001';
+  return clean;
+};
+
+const getRequesterUser = async (req: Request) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) return null;
+  const isDbConnected = mongoose.connection.readyState === 1;
+  if (isDbConnected) {
+    try {
+      const cleanId = normalizeId(String(userId));
+      const allUsers = await User.find({});
+      const matched = allUsers.find(u => 
+        normalizeId(u.employeeId) === cleanId || 
+        normalizeId(u.id) === cleanId || 
+        u.email?.toLowerCase() === String(userId).toLowerCase()
+      );
+      if (matched) return matched;
+
+      return await User.findOne({
+        $or: [
+          { _id: mongoose.isValidObjectId(userId) ? new mongoose.Types.ObjectId(String(userId)) : null },
+          { employeeId: String(userId) },
+          { id: String(userId) }
+        ].filter(Boolean)
+      });
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 // @route   GET /api/analytics/velocity
 // @desc    Get performance velocity parameters
 router.get('/velocity', async (req: Request, res: Response): Promise<any> => {
   try {
+    const requester = await getRequesterUser(req);
+    const role = requester ? requester.role : (req.headers['x-user-role'] as string);
+
     if (mongoose.connection.readyState !== 1) {
       console.log('⚠️ MongoDB offline. Returning mock velocity.');
       const mockVelocity = [
@@ -21,7 +72,22 @@ router.get('/velocity', async (req: Request, res: Response): Promise<any> => {
       return res.json(mockVelocity);
     }
 
-    const tasks = await Task.find({ status: 'completed' });
+    let filter: any = { status: 'completed' };
+    if (requester) {
+      const roleLower = requester.role.toLowerCase();
+      if (roleLower === 'employee') {
+        filter.assignedTo = requester.employeeId;
+      } else if (roleLower === 'manager') {
+        const cleanMgrId = normalizeId(requester.employeeId);
+        const allUsers = await User.find({});
+        const teamIds = allUsers
+          .filter(u => normalizeId(u.managerId) === cleanMgrId)
+          .map(m => m.employeeId);
+        filter.assignedTo = { $in: [...teamIds, requester.employeeId, cleanMgrId] };
+      }
+    }
+
+    const tasks = await Task.find(filter);
     
     // Group XP yields by day of week or date
     const dailyMap: Record<string, { xp: number; tasks: number }> = {
@@ -33,7 +99,6 @@ router.get('/velocity', async (req: Request, res: Response): Promise<any> => {
     };
 
     tasks.forEach(task => {
-      // Pick a weekday mapping based on dueDate
       const d = new Date(task.dueDate);
       const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
       if (dailyMap[dayName]) {
@@ -44,7 +109,7 @@ router.get('/velocity', async (req: Request, res: Response): Promise<any> => {
 
     const velocityOutput = Object.keys(dailyMap).map(day => ({
       day,
-      xp: dailyMap[day].xp || 150, // Fallback placeholder if seed date offsets don't align
+      xp: dailyMap[day].xp || 150, 
       tasks: dailyMap[day].tasks || 2
     }));
 
@@ -58,17 +123,56 @@ router.get('/velocity', async (req: Request, res: Response): Promise<any> => {
 // @desc    Get burnout coefficients for employees
 router.get('/burnout', async (req: Request, res: Response): Promise<any> => {
   try {
+    const requester = await getRequesterUser(req);
+    const role = requester ? requester.role : (req.headers['x-user-role'] as string);
+
     if (mongoose.connection.readyState !== 1) {
       console.log('⚠️ MongoDB offline. Returning mock burnout coefficients.');
+      // Filter mock burnout report offline
       const mockBurnout = [
-        { name: 'Developer Engineer 01', department: 'Engineering', burnout: 25 },
-        { name: 'Developer Engineer 02', department: 'Engineering', burnout: 45 },
-        { name: 'Developer Engineer 03', department: 'Product', burnout: 60 }
+        { name: 'Alex Carter', employeeId: 'EMP001', department: 'Engineering', burnout: 15, managerId: 'MGR001' },
+        { name: 'Emma Wilson', employeeId: 'EMP002', department: 'Engineering', burnout: 45, managerId: 'MGR001' },
+        { name: 'Daniel Brown', employeeId: 'EMP003', department: 'Engineering', burnout: 20, managerId: 'MGR001' },
+        { name: 'Olivia Davis', employeeId: 'EMP004', department: 'Engineering', burnout: 28, managerId: 'MGR001' },
+        { name: 'Noah Miller', employeeId: 'EMP005', department: 'Engineering', burnout: 18, managerId: 'MGR001' },
+        { name: 'Sophia Taylor', employeeId: 'EMP006', department: 'Marketing', burnout: 30, managerId: 'MGR002' },
+        { name: 'Liam Thomas', employeeId: 'EMP007', department: 'Marketing', burnout: 40, managerId: 'MGR002' },
+        { name: 'Ava White', employeeId: 'EMP008', department: 'Marketing', burnout: 22, managerId: 'MGR002' },
+        { name: 'Ethan Harris', employeeId: 'EMP009', department: 'Marketing', burnout: 27, managerId: 'MGR002' },
+        { name: 'Mia Clark', employeeId: 'EMP010', department: 'Marketing', burnout: 19, managerId: 'MGR002' }
       ];
-      return res.json(mockBurnout);
+      
+      let filtered = mockBurnout;
+      if (role) {
+        const roleLower = role.toLowerCase();
+        if (roleLower === 'employee') {
+          const reqEmpId = requester?.employeeId;
+          filtered = mockBurnout.filter(b => normalizeId(b.employeeId) === normalizeId(reqEmpId));
+        } else if (roleLower === 'manager') {
+          const reqEmpId = requester?.employeeId;
+          filtered = mockBurnout.filter(b => normalizeId(b.managerId) === normalizeId(reqEmpId));
+        }
+      }
+      return res.json(filtered);
     }
 
-    const employees = await User.find({ role: 'Employee' }).select('name department burnoutScore');
+    let filter: any = { role: 'Employee' };
+    if (requester) {
+      const roleLower = requester.role.toLowerCase();
+      if (roleLower === 'employee') {
+        filter = { employeeId: requester.employeeId };
+      } else if (roleLower === 'manager') {
+        const cleanMgrId = normalizeId(requester.employeeId);
+        filter = { 
+          $or: [
+            { managerId: requester.employeeId, role: 'Employee' },
+            { managerId: cleanMgrId, role: 'Employee' }
+          ]
+        };
+      }
+    }
+
+    const employees = await User.find(filter).select('name department burnoutScore');
     const burnoutReport = employees.map(emp => ({
       name: emp.name,
       department: emp.department,

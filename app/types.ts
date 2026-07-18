@@ -17,6 +17,7 @@ export interface User {
   department: string;
   joinedAt: string;
   employeeId?: string;
+  managerId?: string;
   themeColor?: 'cyan' | 'purple' | 'emerald' | 'amber';
   skipsLeft?: number;
   streakFreezeActive?: boolean;
@@ -28,6 +29,7 @@ export interface User {
   pendingTasksCount?: number;
   commitsCount?: number;
   status?: string;
+  attendance?: number;
 }
 
 export interface Task {
@@ -74,6 +76,7 @@ export interface LeaderboardEntry {
   level: number;
   avatar: string;
   department: string;
+  employeeId?: string;
 }
 
 export interface ActivityLog {

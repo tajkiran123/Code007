@@ -277,11 +277,13 @@ export default function Home() {
   const [forgeLog, setForgeLog] = useState<string[]>([]);
   const [forgeSuccess, setForgeSuccess] = useState(false);
 
-  const executeForgeSimulation = () => {
+  const executeForgeSimulation = async () => {
     handleSoundClick();
     setIsForging(true);
     setForgeSuccess(false);
     setForgeLog([`[INFO] Initializing Quest Forge Engine...`]);
+
+    const xpYield = forgeDifficulty === 'easy' ? 25 : forgeDifficulty === 'medium' ? 50 : forgeDifficulty === 'hard' ? 100 : 200;
 
     const logs = [
       `[INFO] Validating department node: ${forgeDept}...`,
@@ -289,26 +291,74 @@ export default function Home() {
       `[INFO] Securing tokenized badge assignment: "${forgeBadge}"...`,
       `[PROCESS] Compiling cryptographic telemetry specs...`,
       `[SUCCESS] Quest "${forgeName}" compiled successfully!`,
-      `[SUCCESS] Hashing Quest node to simulated ledger...`
+      `[SUCCESS] Hashing Quest node to active task ledger...`
     ];
 
-    logs.forEach((log, index) => {
-      setTimeout(() => {
-        setForgeLog(prev => [...prev, log]);
-        if (index === logs.length - 1) {
-          setIsForging(false);
-          setForgeSuccess(true);
-          const xpYield = forgeDifficulty === 'easy' ? 25 : forgeDifficulty === 'medium' ? 50 : forgeDifficulty === 'hard' ? 100 : 200;
-          triggerNotification(`Quest Forged successfully! +${xpYield} XP predicted.`, "xp", `${xpYield}`);
-          
-          confetti({
-            particleCount: 80,
-            spread: 60,
-            origin: { y: 0.85 },
-            colors: ['#00e5ff', '#7c3aed', '#10b981']
-          });
-        }
-      }, (index + 1) * 350);
+    // Animate log lines one by one
+    for (let i = 0; i < logs.length; i++) {
+      await new Promise<void>(resolve => setTimeout(resolve, (i + 1) * 350));
+      setForgeLog(prev => [...prev, logs[i]]);
+    }
+
+    // Build the new task payload — assign to EMP001 (Alex Carter) by default
+    const newTaskPayload = {
+      title: forgeName,
+      description: `Department: ${forgeDept} | Badge: ${forgeBadge} | Forged via Holographic Quest Forge.`,
+      difficulty: forgeDifficulty,
+      xp: xpYield,
+      assignedTo: 'EMP001',
+      assignedToName: 'Alex Carter',
+      assignedBy: 'MGR001',
+      estimatedHours: forgeDifficulty === 'easy' ? 2 : forgeDifficulty === 'medium' ? 4 : forgeDifficulty === 'hard' ? 8 : 16,
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/tasks/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTaskPayload),
+      });
+
+      if (res.ok) {
+        const createdTask = await res.json();
+        const normalizedTask: Task = {
+          ...createdTask,
+          id: createdTask._id || createdTask.id,
+          status: (createdTask.status || 'todo').toLowerCase(),
+        };
+        setTasks(prev => [normalizedTask, ...prev]);
+        setForgeLog(prev => [...prev, `[LIVE] Task broadcast to Employee Portal ✓`]);
+      } else {
+        throw new Error('API returned non-OK status');
+      }
+    } catch {
+      // Backend offline — add to local state directly so the portal still updates
+      const localTask: Task = {
+        id: `forge-${Date.now()}`,
+        title: forgeName,
+        description: `Department: ${forgeDept} | Badge: ${forgeBadge} | Forged via Holographic Quest Forge.`,
+        difficulty: forgeDifficulty,
+        xp: xpYield,
+        dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+        status: 'todo',
+        assignedTo: 'EMP001',
+        assignedToName: 'Alex Carter',
+        assignedBy: 'MGR001',
+        commentsCount: 0,
+      };
+      setTasks(prev => [localTask, ...prev]);
+      setForgeLog(prev => [...prev, `[OFFLINE] Task injected into local portal state ✓`]);
+    }
+
+    setIsForging(false);
+    setForgeSuccess(true);
+    triggerNotification(`Quest Forged! +${xpYield} XP dispatched to Employee Portal.`, "xp", `${xpYield}`);
+
+    confetti({
+      particleCount: 80,
+      spread: 60,
+      origin: { y: 0.85 },
+      colors: ['#00e5ff', '#7c3aed', '#10b981']
     });
   };
 

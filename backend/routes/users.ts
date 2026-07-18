@@ -722,7 +722,9 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
       location: 'San Francisco, CA',
       badges: [] as string[],
       joinedAt: new Date().toISOString().split('T')[0],
-      themeColor: 'cyan'
+      themeColor: 'cyan',
+      phone: '+1555000000',
+      managerId: role === 'Employee' ? 'MGR001' : 'CEO001'
     };
 
     if (!isDbConnected) {
